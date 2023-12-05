@@ -244,6 +244,15 @@ class IntervalMap:
                 return i
         return -1
 
+    def get_closest_range_index(self, item):
+        j = -1
+        closest_dist = float('inf')
+        for i, (dest, source, amnt) in enumerate(self.ranges):
+            if item < source and (source - item) < closest_dist:
+                j = i
+                closest_dist = source - item
+        return j
+
     def __getitem__(self, item):
         if isinstance(item, int):
             idx = self.get_range_index(item)
@@ -254,6 +263,36 @@ class IntervalMap:
                 return item
         elif isinstance(item, tuple):
             start, s_amnt = item
+            idx = self.get_range_index(start)
+            if idx != -1:
+                dest, source, amnt = self.ranges[idx]
+                # we know that source <= start < source + amnt
+                # two cases: either start + s_amnt falls entirely in this range, or there is something left
+                if start + s_amnt <= source + amnt:
+                    # falls entirely in this range
+                    return [(dest + (start - source), s_amnt)]
+                else:
+                    # there is a remainder. first part is
+                    part1 = dest + (start - source), source + amnt - start
+                    # for second part: recurse
+                    part2 = self[(source + amnt, s_amnt - (source + amnt - start))]
+                    return [part1] + part2
+            else:
+                # find closest next idx
+                idx = self.get_closest_range_index(start)
+                if idx == -1:
+                    return [(start, s_amnt)]  # higher than all others
+                dest, source, amnt = self.ranges[idx]
+                if start + s_amnt <= source:
+                    return [(start, s_amnt)]
+                part1 = start, source - start
+                part2 = self[(source, s_amnt - (source - start))]
+                return [part1] + part2
+        elif isinstance(item, list):
+            result = []
+            for el in item:
+                result.extend(self[el])
+            return result
 
 
 def get_map_through(seed, maps):
@@ -294,11 +333,13 @@ def main():
     ]
     real_maps = [
         IntervalMap([tuple(map(int, line.strip().split(' '))) for line in raw_map.splitlines()])
-        for raw_map in test_maps
+        for raw_map in RAW_MAPS
     ]
-    print(min((get_map_through(seed, real_maps) for seed in test_seeds)))
-    seed_range = as_seed_range(test_seeds)
-    print(seed_range)
+    print(min((get_map_through(seed, real_maps) for seed in SEEDS)))
+    seed_range = as_seed_range(SEEDS)
+    result = get_map_through(seed_range, real_maps)
+    print(result)
+    print(min((lb for lb, _ in result)))
 
 
 if __name__ == '__main__':
