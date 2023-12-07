@@ -1,6 +1,9 @@
 from attrs import define
 
 
+# for: https://hack.ainfosec.com/
+
+
 test_input = '''|  3 |  11 |   X |   5 |  10 |
 |  7 |   6 |   2 |  15 |   4 |
 | 13 |   8 |   1 |  22 |  19 |
