@@ -79,6 +79,13 @@ def make_quick_step_calc(the_map, path, start):
     return shortcut, steps, loop_length
 
 
+def lcm(a, b):
+    t = a % b
+    if t == 0:
+        return a
+    return a * lcm(b, t) // t
+
+
 def find_simultaneous_letters(the_map, path, start_nodes):
     fast_calcs = list(sorted(
         [make_quick_step_calc(the_map, path, node) for node in start_nodes],
@@ -97,15 +104,18 @@ def find_simultaneous_letters(the_map, path, start_nodes):
 
     # find it in a better way
     offsets = [i for i in range(loop_length) if step_fun(head_length + i).endswith('Z')]
-    n = 0
-    while True:
-        for i in offsets:
-            if all((other_step(head_length + n * loop_length + i).endswith('Z')
-                    for other_step, _, _ in fast_calcs)):
-                return head_length + n * loop_length + i
-        n += 1
-        if n % 100 == 99:
-            print(head_length + n * loop_length)
+    cur_loop_length = loop_length
+    for other_step, other_head, other_loop in fast_calcs:
+        new_loop_length = lcm(cur_loop_length, other_loop)
+        nmax = new_loop_length // cur_loop_length
+        new_offsets = []
+        for n in range(nmax):
+            for i in offsets:
+                if other_step(head_length + n * cur_loop_length + i).endswith('Z'):
+                    new_offsets.append(n * cur_loop_length + i)
+        offsets = new_offsets
+        cur_loop_length = new_loop_length
+    return offsets[0] + head_length
 
 
 def check_simultaneous_letters(the_map, path, start_nodes, steps):
@@ -143,12 +153,13 @@ ZZZ = (ZZZ, ZZZ)'''.splitlines()
 XXX = (XXX, XXX)'''.splitlines()
     path = to_index_path(all_lines[0].strip())
     the_map = parse_node_map(all_lines[2:])
-    # print(count_steps_to(the_map, path, 'MJA', '11Z'))
+    print(count_steps_to(the_map, path, 'AAA', 'ZZZ'))
 
-    print(find_simultaneous_letters(the_map, path, [node for node in the_map.keys() if node.endswith('A')]))
+    nodes_a = [node for node in the_map.keys() if node.endswith('A')]
+    result = find_simultaneous_letters(the_map, path, nodes_a)
+    print(result)
     # 21003205388413
-    # print(check_simultaneous_letters(the_map, path,
-    #                                  [node for node in the_map.keys() if node.endswith('A')][:6], 21003205388413))
+    check_simultaneous_letters(the_map, path, nodes_a, result)
 
 
 if __name__ == '__main__':
