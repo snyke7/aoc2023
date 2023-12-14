@@ -60,7 +60,7 @@ def count_valid_single_arrangements(mask, piece):
     return total
 
 
-@lru_cache
+@lru_cache(maxsize=None)
 def get_free_ones_placement(one_count, space):
     if space < 0:
         return 0
@@ -90,6 +90,7 @@ def count_mask_piece_arrangements_opt(mask_pieces, piece_count, debug=False):
     elif len(masks_with_pieces) == len(piece_count) and len(piece_count) > 1:
         # every piece goes with its exact mask
         result = 1
+        # this is not an important optimization, it barely happens
         for mask, piece in zip(masks_with_pieces, piece_count):
             result *= count_mask_piece_arrangements_opt([mask], [piece])
             if result == 0:
@@ -216,6 +217,70 @@ def count_arrangements_opt2(row, debug=False):
     return count_mask_piece_arrangements_opt2(mask_pieces, piece_count, debug=debug)
 
 
+def count_mask_arrangements(mask, piece_count, debug=False):
+    if '#' not in mask:
+        return get_free_placement(piece_count, len(mask))
+    if len(piece_count) == 0:
+        return 0 if '#' in mask else 1
+    if sum(piece_count) + len(piece_count) - 1 > len(mask):  # this one is quite important
+        return 0
+    longest_piece = max(piece_count)
+    if mask[0] == '#':
+        if piece_count[0] > len(mask) or (piece_count[0] < len(mask) and mask[piece_count[0]] == '#'):
+            return 0
+        else:
+            return count_mask_arrangements(mask[piece_count[0] + 1:], piece_count[1:], debug=debug)
+    if mask[-1] == '#':
+        return count_mask_arrangements(mask[::-1], piece_count[::-1])
+    middle = len(mask) // 2 - (1 if len(mask) > 0 else 0)
+    middle_piece_start = middle
+    while mask[middle_piece_start] == '#' and middle_piece_start >= 0:
+        middle_piece_start -= 1
+    while middle + 1 < len(mask) and mask[middle + 1] == '#':
+        middle += 1
+    middle_piece_length = middle - middle_piece_start
+    result = 0
+    for n in range(min(longest_piece - middle_piece_length + 1, len(mask) - middle)):
+        new_masks = [
+            mask[:middle + 1] + n * '#',
+            mask[middle + 1 + n + 1:]
+        ]
+        if middle + 1 + n < len(mask) and mask[middle + 1 + n] == '#':
+            continue
+        if debug:
+            print(mask, new_masks, piece_count, middle, n)
+        result += count_mask_pieces_arrangements(
+            new_masks,
+            piece_count,
+            debug=debug
+        )
+    return result
+
+
+def count_mask_pieces_arrangements(mask_pieces, piece_count, debug=False):
+    if len(piece_count) == 0:
+        return 0 if any(('#' in piece for piece in mask_pieces)) else 1
+    if len(mask_pieces) == 1:
+        return count_mask_arrangements(mask_pieces[0], piece_count, debug=debug)
+    result = 0
+    first_mask = mask_pieces[0]
+    for s in range(len(piece_count) + 1):
+        mult = count_mask_arrangements(first_mask, piece_count[:s], debug=debug)
+        if mult > 0:
+            sub_result = count_mask_pieces_arrangements(mask_pieces[1:], piece_count[s:], debug=debug)
+            if debug:
+                print(mult, first_mask, piece_count[:s], sub_result, mask_pieces[1:], piece_count[s:], s, result)
+            result += mult * sub_result
+    return result
+
+
+def count_arrangements_opt3(row, debug=False):
+    mask, _, piece_count_raw = row.partition(' ')
+    mask_pieces = [el for el in mask.split('.') if el]
+    piece_count = [int(part) for part in piece_count_raw.split(',')]
+    return count_mask_pieces_arrangements(mask_pieces, piece_count, debug=debug)
+
+
 RESULT_PT1_HASH = -6491710965772637794
 
 
@@ -223,11 +288,13 @@ def main():
     with open('input/day12_input.txt') as f:
         input_lines = f.readlines()
     input_lines2 = TEST.splitlines()
-    # print(count_arrangements('???#?##??? 4,4'))
-    # print(count_arrangements_opt2('???#?##??? 4,4'))
+    # print(count_arrangements('??????#??#?.?# 2,2,2,1'))
+    # print(count_arrangements_opt3('??????#??#?.?# 2,2,2,1', True))
+    # print(count_arrangements('??????#??#? 2,2'))
+    # print(count_arrangements_opt3('??????#??#? 2,2', True))
 
     # row_arrangement_counts_orig = [count_arrangements(row.strip()) for row in input_lines]
-    # row_arrangement_counts = [count_arrangements_opt2(row.strip()) for row in input_lines]
+    # row_arrangement_counts = [count_arrangements_opt3(row.strip()) for row in input_lines]
     # print(sum(row_arrangement_counts_orig))  # 7843
     # print(sum(row_arrangement_counts))  # 7843
     # if hash(tuple(row_arrangement_counts)) != hash(tuple(row_arrangement_counts_orig)):
@@ -242,7 +309,7 @@ def main():
     for i, row in enumerate(input_lines):
         mask, _, piece_count = row.partition(' ')
         big_row = '?'.join(multiplier * [mask]) + ' ' + ','.join(multiplier * [piece_count.strip()])
-        result = count_arrangements_opt2(big_row)
+        result = count_arrangements_opt3(big_row)
         print(i + 1, result)
         row_arrangement_counts_big.append(result)
     print(sum(row_arrangement_counts_big))
