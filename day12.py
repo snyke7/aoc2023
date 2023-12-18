@@ -131,6 +131,43 @@ def count_arrangements_opt(row, debug=False):
     return count_mask_pieces_arrangements(mask_pieces, piece_count, debug=debug)
 
 
+# Tweaked solution for part1, memoizing for this result
+def count_mask_piece_arrangements_memoize(mask_pieces, piece_count, debug=False):
+    result_dict = {}
+    mask = '.'.join(mask_pieces)
+
+    def go(mask_i, piece_i, current):
+        if (mask_i, piece_i, current) in result_dict:
+            return result_dict[(mask_i, piece_i, current)]
+        if mask_i == len(mask):
+            if piece_i == len(piece_count) and current == 0:
+                return 1
+            elif piece_i == len(piece_count) - 1 and current == piece_count[-1]:
+                return 1
+            else:
+                return 0
+        total_arrangements = 0
+        for c in ('.', '#'):
+            if mask[mask_i] in (c, '?'):
+                if c == '.' and current == 0:
+                    total_arrangements += go(mask_i + 1, piece_i, current)
+                elif c == '.' and current > 0 and piece_i < len(piece_count) and piece_count[piece_i] == current:
+                    total_arrangements += go(mask_i + 1, piece_i + 1, 0)
+                elif c == '#':
+                    total_arrangements += go(mask_i + 1, piece_i, current + 1)
+        result_dict[(mask_i, piece_i, current)] = total_arrangements
+        return total_arrangements
+
+    return go(0, 0, 0)
+
+
+def count_arrangements_memoize(row, debug=False):
+    mask, _, piece_count_raw = row.partition(' ')
+    mask_pieces = [el for el in mask.split('.') if el]
+    piece_count = [int(part) for part in piece_count_raw.split(',')]
+    return count_mask_piece_arrangements_memoize(mask_pieces, piece_count, debug=debug)
+
+
 def main():
     with open('input/day12_input.txt') as f:
         input_lines = f.readlines()
@@ -138,7 +175,7 @@ def main():
 
     # part 1
     row_arrangement_counts_orig = [count_arrangements(row.strip()) for row in input_lines]
-    row_arrangement_counts = [count_arrangements_opt(row.strip()) for row in input_lines]
+    row_arrangement_counts = [count_arrangements_memoize(row.strip()) for row in input_lines]
     print(sum(row_arrangement_counts_orig))  # 7843
     print(sum(row_arrangement_counts))  # should match! 7843
     print()
@@ -149,7 +186,7 @@ def main():
     for i, row in enumerate(input_lines):  # still takes about 1.5 minutes with pypy :(
         mask, _, piece_count = row.partition(' ')
         big_row = '?'.join(multiplier * [mask]) + ' ' + ','.join(multiplier * [piece_count.strip()])
-        result = count_arrangements_opt(big_row)
+        result = count_arrangements_memoize(big_row)
         if i % 100 == 99:
             print(i + 1, result)
         row_arrangement_counts_big.append(result)
