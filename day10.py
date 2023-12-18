@@ -153,28 +153,33 @@ def get_jumps(the_loop):
     return jumps
 
 
-def count_jumps_to(node, jumps):
+def count_jumps_to(node, jumps, start):
     x, y = node
+    start_x, start_y = start
     count = 0
-    for i in range(x):
-        if frozenset([(i, 0), (i + 1, 0)]) in jumps:
+    for i in range(start_x, x):
+        if frozenset([(i, start_y), (i + 1, start_y)]) in jumps:
             count += 1
-    for j in range(y):
+    for j in range(start_y, y):
         if frozenset([(x, j), (x, j + 1)]) in jumps:
             count += 1
     return count
 
 
-def count_inner(raw_lines, path, jumps):
-    ground_locs = [
+def get_ground_locs(x_size, y_size):
+    return [
         (i, j)
-        for i, line in enumerate(raw_lines)
-        for j, el in enumerate(line)
-        if (i, j) not in path
+        for i in range(x_size)
+        for j in range(y_size)
     ]
+
+
+def count_inner(ground_locs, path, jumps, start):
     total = 0
     for loc in ground_locs:
-        jump_count = count_jumps_to(loc, jumps)
+        if loc in path:
+            continue
+        jump_count = count_jumps_to(loc, jumps, start)
         if jump_count % 2 == 1:
             total += 1
     return total
@@ -189,7 +194,8 @@ def main():
     loop = find_loop(node_map, start)
     print((len(loop) - 1) / 2.0)
     jumps = get_jumps(loop)
-    print(count_inner(input_lines, loop, jumps))
+    ground_locs = get_ground_locs(len(input_lines), len(input_lines[0].strip()))
+    print(count_inner(ground_locs, loop, jumps, (0, 0)))
 
 
 if __name__ == '__main__':
