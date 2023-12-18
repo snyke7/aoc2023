@@ -83,28 +83,6 @@ def build_loop(instructions):
     return result
 
 
-def part1(instrs):
-    path = build_loop(instrs)
-    jumps = get_jumps(path)
-    print(len(path))
-    print(len(set(path)))
-
-    x_min = min((x for x, y in path))
-    x_max = max((x for x, y in path))
-    y_min = min((y for x, y in path))
-    y_max = max((y for x, y in path))
-    print(x_min, x_max)
-    print(y_min, y_max)
-    ground_locs = [
-        (i, j)
-        for i in range(x_min - 1, x_max + 2)
-        for j in range(y_min - 1, y_max + 2)
-    ]
-    inner = count_inner(ground_locs, path, jumps, (x_min - 1, y_min - 1))
-    print(inner)
-    print(inner + len(set(path)))  # 38147, too low
-
-
 def get_corners_pt2(instrs, part2=True):
     if part2:
         return get_corners([(direction, amnt) for _, _, (direction, amnt) in instrs])
@@ -180,6 +158,24 @@ def rotate_corners(corners, i):
     return corners[i:-1] + corners[:i] + [corners[i]]
 
 
+def part1(instrs):
+    # very slow, but it gets us to part 2
+    path = build_loop(instrs)
+    jumps = get_jumps(path)
+
+    x_min = min((x for x, y in path))
+    x_max = max((x for x, y in path))
+    y_min = min((y for x, y in path))
+    y_max = max((y for x, y in path))
+    ground_locs = [
+        (i, j)
+        for i in range(x_min - 1, x_max + 2)
+        for j in range(y_min - 1, y_max + 2)
+    ]
+    inner = count_inner(ground_locs, path, jumps, (x_min - 1, y_min - 1))
+    print(inner + len(set(path)))  # 38147, too low
+
+
 def compute_area(corners):
     i, left_edge = get_leftmost_edge(corners)
     corners = rotate_corners(corners, i)
@@ -190,8 +186,6 @@ def compute_area(corners):
     intersect_y = corners[js[0]][1]
 
     my_area = (abs(left_edge[0][0] - left_edge[1][0]) + 1) * (abs(left_edge[0][1] - intersect_y) + 1)
-    # print(f'initial area: {my_area}')
-    # print(f'corners, js: {corners}, {js}')
 
     if js[0] > 2:
         to_append = [(corners[2][0], intersect_y)] + corners[2:js[0] + 1]
@@ -200,13 +194,14 @@ def compute_area(corners):
         overlap_bot = min(to_append[-2][0], left_edge[0][0])
         overlap_top = left_edge[1][0]
         my_area -= (overlap_bot - overlap_top) + 1
-        # print(f'Removing overlap (s) between {overlap_bot} and {overlap_top}')
 
     for j, prev in zip(js[1:], js[:-1]):
         corner_partitions.append(
             corners[prev + 1:j + 1] + [corners[prev + 1]]
         )
-        my_area -= corner_partitions[-1][-2][0] - corner_partitions[-1][0][0] + 1
+        overlap_bot = min(corner_partitions[-1][-2][0], left_edge[0][0])
+        overlap_top = max(corner_partitions[-1][0][0], left_edge[1][0])
+        my_area -= overlap_bot - overlap_top + 1
 
     if js[-1] + 1 < len(corners) - 2:
         to_append = corners[js[-1] + 1:-1] + [(corners[-2][0], intersect_y)]
@@ -216,16 +211,11 @@ def compute_area(corners):
         overlap_bot = left_edge[0][0]
         overlap_top = max(to_append[0][0], left_edge[1][0])
         my_area -= (overlap_bot - overlap_top) + 1
-        # print(f'Removing overlap (e) between {overlap_bot} and {overlap_top}')
-
-    # print(f'area after counting doubles: {my_area}')
-    # print(corner_partitions)
 
     total_area = my_area
     for partition in corner_partitions:
         total_area += compute_area(partition)
 
-    # print(f'returning: {total_area}')
     return total_area
 
 
@@ -235,9 +225,43 @@ def main():
     test_input_lines = TEST.splitlines()
     test2_input_lines = TEST2.splitlines()
     instrs = read_instructions(input_lines)
-    corners = get_corners_pt2(instrs, part2=False)
-    print(compute_area(corners))
 
+    # part1(instrs)
+    # ^ initial version, very slow
+    print(compute_area(get_corners_pt2(instrs, False)))
+    print(compute_area(get_corners_pt2(instrs, True)))
+
+    assert compute_area([
+        (0, 0), (0, 1), (-1, 1), (-1, 4), (1, 4), (1, 2), (3, 2), (3, 4), (4, 4), (4, 2), (6, 2), (6, 4), (8, 4),
+        (8, 3), (7, 3), (7, 0), (0, 0)
+    ]) == 42
+    assert compute_area([
+        (0, 0), (0, 2), (-1, 2), (-1, 4), (1, 4), (1, 2), (3, 2), (3, 4), (4, 4), (4, 2), (6, 2), (6, 4), (8, 4),
+        (8, 3), (7, 3), (7, 0), (0, 0)
+    ]) == 41
+    assert compute_area([
+        (0, 0), (0, 2), (-1, 2), (-1, 4), (1, 4), (1, 2), (3, 2), (3, 4), (4, 4), (4, 0), (0, 0)
+    ]) == 26
+    assert compute_area([
+        (0, 0), (0, 2), (-1, 2), (-1, 4), (1, 4), (1, 0), (0, 0)
+    ]) == 13
+    assert compute_area([
+        (0, 0), (0, 3), (-1, 3), (-1, 4), (1, 4), (1, 2), (3, 2), (3, 4), (4, 4), (4, 2), (6, 2), (6, 4), (8, 4),
+        (8, 3), (7, 3), (7, 0), (0, 0)
+    ]) == 40
+    assert compute_area([
+        (0, 0), (0, 3), (-1, 3), (-1, 4), (1, 4), (1, 2), (3, 2), (3, 4), (4, 4), (4, 2), (6, 2), (6, 4), (7, 4),
+        (7, 0), (0, 0)
+    ]) == 38
+    assert compute_area([
+        (0, 0), (0, 4), (1, 4), (1, 2), (3, 2), (3, 4), (4, 4), (4, 2), (6, 2), (6, 4), (7, 4), (7, 0), (0, 0)
+    ]) == 36
+    assert compute_area([
+        (0, 0), (0, 4), (1, 4), (1, 3), (3, 3), (3, 4), (4, 4), (4, 3), (6, 3), (6, 4), (7, 4), (7, 0), (0, 0)
+    ]) == 38
+    assert compute_area([
+        (0, 0), (0, 4), (1, 4), (1, 3), (3, 3), (3, 4), (4, 4), (4, 3), (5, 3), (5, 0), (0, 0)
+    ]) == 28
     assert compute_area(get_corners_pt2(read_instructions(test_input_lines))) == 952408144115
     assert compute_area(get_corners_pt2(read_instructions(test_input_lines), part2=False)) == 62
     assert compute_area(get_corners_pt2(read_instructions(test2_input_lines), part2=False)) == 65
