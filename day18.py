@@ -144,7 +144,7 @@ def line_overlap_min_max(line1_min, line1_max, line2_min, line2_max):
     return line2_min <= line1_max and line1_min <= line2_max
 
 
-def find_intersecting_edge(min_y, top_x, bot_x, corners):
+def find_an_intersecting_edge(min_y, top_x, bot_x, corners):
     dist_y = float('inf')
     the_index = None
     for j, edge in enumerate(zip(corners[:-1], corners[1:])):
@@ -157,127 +157,96 @@ def find_intersecting_edge(min_y, top_x, bot_x, corners):
             if this_dist < dist_y:
                 dist_y = this_dist
                 the_index = j
-    if the_index is None:
-        print(f'faulty corners: {corners}')
-        print(f'wrt: {min_y, top_x, bot_x}')
-    return the_index, (corners[the_index], corners[the_index + 1])
+    return the_index
+
+
+def find_intersecting_edges(min_y, top_x, bot_x, corners):
+    index = find_an_intersecting_edge(min_y, top_x, bot_x, corners)
+    the_y = corners[index][1]
+    result = []
+    for j, edge in enumerate(zip(corners[:-1], corners[1:])):
+        if edge[0][1] != edge[1][1]:
+            continue  # only care about vertical edges
+        if edge[0][1] <= min_y:
+            continue  # must be to the right
+        if line_overlap(top_x, bot_x, edge[0][0], edge[1][0]):
+            if edge[0][1] == the_y:
+                result.append(j)
+    return result
+
+
+def rotate_corners(corners, i):
+    # corner at index i < len(corners) - 1 should be put first
+    return corners[i:-1] + corners[:i] + [corners[i]]
 
 
 def compute_area(corners):
     i, left_edge = get_leftmost_edge(corners)
-    j, intersecting_edge = find_intersecting_edge(
+    corners = rotate_corners(corners, i)
+    js = find_intersecting_edges(
         left_edge[0][1], left_edge[0][0], left_edge[1][0], corners
     )
-    if i == len(corners) - 2:
-        bot_corners = corners[j + 2:i]
-        top_corners = corners[1:j]
-    elif i > j:
-        bot_corners = corners[j + 2:i]
-        top_corners = corners[i + 2:-1] + corners[:j]
-        if len(top_corners) == 1:
-            top_corners = []
-    else:
-        top_corners = corners[i + 2:j]
-        bot_corners = corners[j + 2:-1] + corners[:i]
-        if len(bot_corners) == 1:
-            bot_corners = []
+    corner_partitions = []
+    intersect_y = corners[js[0]][1]
 
-    my_area = (abs(left_edge[0][0] - left_edge[1][0]) + 1) * (abs(left_edge[0][1] - intersecting_edge[0][1]) + 1)
-    if (i + 2) % (len(corners) - 1) == j or (i - 2) % (len(corners) - 1) == j:
-        if top_corners or bot_corners:
-            my_area -= (intersecting_edge[0][0] - left_edge[1][0] + 1)
-    else:
-        assert top_corners
-        assert bot_corners
-        my_area -= (intersecting_edge[0][0] - left_edge[1][0] + 1)
-        my_area -= (left_edge[0][0] - intersecting_edge[1][0] + 1)
-    print(my_area, left_edge, intersecting_edge)
+    my_area = (abs(left_edge[0][0] - left_edge[1][0]) + 1) * (abs(left_edge[0][1] - intersect_y) + 1)
+    # print(f'initial area: {my_area}')
+    # print(f'corners, js: {corners}, {js}')
+
+    if js[0] > 2:
+        to_append = [(corners[2][0], intersect_y)] + corners[2:js[0] + 1]
+        to_append.append(to_append[0])
+        corner_partitions.append(to_append)
+        overlap_bot = min(to_append[-2][0], left_edge[0][0])
+        overlap_top = left_edge[1][0]
+        my_area -= (overlap_bot - overlap_top) + 1
+        # print(f'Removing overlap (s) between {overlap_bot} and {overlap_top}')
+
+    for j, prev in zip(js[1:], js[:-1]):
+        corner_partitions.append(
+            corners[prev + 1:j + 1] + [corners[prev + 1]]
+        )
+        my_area -= corner_partitions[-1][-2][0] - corner_partitions[-1][0][0] + 1
+
+    if js[-1] + 1 < len(corners) - 2:
+        to_append = corners[js[-1] + 1:-1] + [(corners[-2][0], intersect_y)]
+        to_append.append(to_append[0])
+        corner_partitions.append(to_append)
+
+        overlap_bot = left_edge[0][0]
+        overlap_top = max(to_append[0][0], left_edge[1][0])
+        my_area -= (overlap_bot - overlap_top) + 1
+        # print(f'Removing overlap (e) between {overlap_bot} and {overlap_top}')
+
+    # print(f'area after counting doubles: {my_area}')
+    # print(corner_partitions)
 
     total_area = my_area
-    if bot_corners:
-        # subtracted_horiz_line = False
-        # total_area -= (intersecting_edge[1][1] - bot_corners[-1][1]) + 1
-        # subtracted_horiz_line = True
-        if intersecting_edge[1][0] != left_edge[0][0]:
-            # if intersecting_edge[1][0] < left_edge[0][0]:
-            #     total_area -= (left_edge[0][0] - intersecting_edge[1][0] + 1)
-            #     if subtracted_horiz_line:
-            #         total_area += 1
-            bot_corners.append((bot_corners[-1][0], intersecting_edge[1][1]))
-            bot_corners.append(intersecting_edge[1])
-        print(f'minus overlapping bot: {total_area}')
-        bot_corners.append(bot_corners[0])
-        print(f'bottom: {bot_corners}')
-        print(f'all: {corners}')
-        print(f'left, intersect: {left_edge, intersecting_edge} at {i, j, len(corners)}')
-        total_area += compute_area(bot_corners)
+    for partition in corner_partitions:
+        total_area += compute_area(partition)
 
-    if top_corners:
-        # subtracted_horiz_line = False
-        # total_area -= (intersecting_edge[0][1] - top_corners[0][1]) + 1
-        # subtracted_horiz_line = True
-        if intersecting_edge[0][0] != left_edge[1][0]:
-            # if intersecting_edge[0][0] > left_edge[1][0]:
-            #     total_area -= (intersecting_edge[0][0] - left_edge[1][0] + 1)
-            #     if subtracted_horiz_line:
-            #         total_area += 1
-            # total_area -= abs(intersecting_edge[0][0] - left_edge[1][0])
-            top_corners.append(intersecting_edge[0])
-            top_corners.append((top_corners[0][0], intersecting_edge[0][1]))
-        top_corners.append(top_corners[0])
-        print(f'minus overlapping top: {total_area}')
-        print(f'top: {top_corners}')
-        print(f'all: {corners}')
-        print(f'left, intersect: {left_edge, intersecting_edge} at {i, j, len(corners)}')
-        total_area += compute_area(top_corners)
-
-    print(f'returning: {total_area}')
+    # print(f'returning: {total_area}')
     return total_area
 
 
 def main():
     with open('input/day18_input.txt') as f:
         input_lines = f.readlines()
-    input_lines = TEST2.splitlines()
+    test_input_lines = TEST.splitlines()
+    test2_input_lines = TEST2.splitlines()
     instrs = read_instructions(input_lines)
     corners = get_corners_pt2(instrs, part2=False)
-    # print(compute_area(corners))
+    print(compute_area(corners))
 
+    assert compute_area(get_corners_pt2(read_instructions(test_input_lines))) == 952408144115
+    assert compute_area(get_corners_pt2(read_instructions(test_input_lines), part2=False)) == 62
+    assert compute_area(get_corners_pt2(read_instructions(test2_input_lines), part2=False)) == 65
     corners = [(0, 0), (0, 4), (2, 4), (2, 2), (3, 2), (3, 0), (0, 0)]
     assert compute_area(corners) == 18
-    #
-    # corners = [(4, 4), (5, 4), (5, 2), (2, 2), (2, 3), (1, 3), (1, 6), (4, 6), (4, 4)]
-    # print(compute_area(corners))
-    #
-    # corners = [(4, 4), (5, 4), (5, 2), (2, 2), (2, 4), (3, 4), (3, 6), (4, 6), (4, 4)]
-    # print(compute_area(corners))
-
-    print()
     corners = [(0, 0), (0, 3), (1, 3), (1, 2), (3, 2), (3, 3), (4, 3), (4, 0), (0, 0)]
     assert compute_area(corners) == 19
-    print()
     corners = [(0, 0), (0, 6), (1, 6), (1, 2), (3, 2), (3, 6), (4, 6), (4, 0), (0, 0)]
     assert compute_area(corners) == 31
-
-    # corners = [(0, 4), (0, 6), (4, 6), (4, 4), (2, 4), (2, 2), (4, 2), (4, 0), (2, 0), (2, 4), (0, 4)]
-    # print(corners)
-    # print(compute_area(corners))
-    # print()
-    #
-    # corners = [(0, 3), (0, 6), (4, 6), (4, 4), (2, 4), (2, 2), (4, 2), (4, 0), (2, 0), (2, 3), (0, 3)]
-    # print(corners)
-    # print(compute_area(corners))
-    # print()
-    #
-    # corners = [(0, 2), (0, 6), (4, 6), (4, 4), (2, 4), (2, 2), (4, 2), (4, 0), (2, 0), (2, 2), (0, 2)]
-    # print(corners)
-    # print(compute_area(corners))
-    # print()
-    #
-    # corners = [(0, 1), (0, 6), (4, 6), (4, 4), (2, 4), (2, 2), (4, 2), (4, 0), (2, 0), (2, 1), (0, 1)]
-    # print(corners)
-    # print(compute_area(corners))
-    # print()
 
 
 if __name__ == '__main__':
