@@ -28,7 +28,7 @@ TEST2 = '''111111111111
 999999999991'''
 
 
-def parse_graph(input_lines, min_steps=1, max_steps=3) -> Dict[Coord, List[Tuple[Coord, int]]]:
+def parse_graph(input_lines, min_steps=1, max_steps=3) -> Tuple[Dict[Coord, List[Tuple[Coord, int]]], Coord, Coord]:
     result = {}
     for i, line in enumerate(input_lines):
         for j in range(len(line.strip())):
@@ -67,39 +67,36 @@ def parse_graph(input_lines, min_steps=1, max_steps=3) -> Dict[Coord, List[Tuple
                 sum_dist += int(input_lines[i + n][j])
                 if n >= min_steps:
                     result[(i, j, True)].append(((i + n, j, False), sum_dist))
-    return result
+
+    start = (-1, -1, True)
+    start_down = (0, 0, True)
+    start_right = (0, 0, False)
+    end = (len(input_lines), len(input_lines[-1].strip()), True)
+    end_arrive_down = (len(input_lines) - 1, len(input_lines[-1].strip()) - 1, False)
+    end_arrive_right = (len(input_lines) - 1, len(input_lines[-1].strip()) - 1, True)
+
+    result[start] = [(start_down, 0), (start_right, 0)]
+    result[end_arrive_right].append((end, 0))
+    result[end_arrive_down].append((end, 0))
+    result[end] = []
+
+    return result, start, end
 
 
 def main():
     with open('input/day17_input.txt') as f:
         input_lines = f.readlines()
     input_lines2 = TEST.splitlines()
-    start_down = (0, 0, True)
-    start_right = (0, 0, False)
-    end_arrive_down = (len(input_lines) - 1, len(input_lines[-1].strip()) - 1, False)
-    end_arrive_right = (len(input_lines) - 1, len(input_lines[-1].strip()) - 1, True)
 
     # part 1
-    graph = parse_graph(input_lines)
-    distances_down = dijkstra(graph, start_down)
-    distances_right = dijkstra(graph, start_right)
-    print(min(
-        distances_down[end_arrive_down],
-        distances_down[end_arrive_right],
-        distances_right[end_arrive_right],
-        distances_right[end_arrive_down]
-    ))
+    graph, start, end = parse_graph(input_lines)
+    distances = dijkstra(graph, start)
+    print(distances[end])
 
     # part 2
-    graph = parse_graph(input_lines, 4, 10)
-    distances_down = dijkstra(graph, start_down)
-    distances_right = dijkstra(graph, start_right)
-    print(min(
-        distances_down[end_arrive_down],
-        distances_down[end_arrive_right],
-        distances_right[end_arrive_right],
-        distances_right[end_arrive_down]
-    ))
+    graph, start, end = parse_graph(input_lines, 4, 10)
+    distances = dijkstra(graph, start)
+    print(distances[end])
 
 
 if __name__ == '__main__':
