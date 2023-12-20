@@ -1,4 +1,5 @@
 from typing import List, Any, Dict, Tuple
+from day08 import lcm
 
 from attr import define
 
@@ -49,6 +50,7 @@ class BroadcastNode:
 @define
 class OutputNode:
     received_pulses: List[bool] = []
+    destinations: List[str] = []
 
     def receive_pulse(self, from_label: str, is_high: bool) -> List[Tuple[str, bool]]:
         self.received_pulses.append(is_high)
@@ -73,7 +75,6 @@ def parse_nodes(input_lines):
     for label, node in list(node_dict.items()):
         for dest in node.destinations:
             if dest not in node_dict:
-                print(f'Inserting output node for label: {dest}')
                 node_dict[dest] = OutputNode()
             if isinstance(node_dict[dest], NandNode):
                 node_dict[dest].prev_inputs[label] = False
@@ -105,11 +106,12 @@ def button_mash(node_dict):
     return result_low * result_high
 
 
-def button_repeat_until_output(node_dict):
+def button_repeat_until_output(node_dict, output_label='rx'):
     pushes = 0
-    output = node_dict['rx']
+    output = node_dict[output_label]
     while True:
         button_push(node_dict)
+        pushes += 1
         if pushes % 100000 == 99999:
             print(pushes, output.received_pulses)
         if False in output.received_pulses:
@@ -117,8 +119,89 @@ def button_repeat_until_output(node_dict):
             return pushes
         if output.received_pulses == [False]:
             return pushes
-        pushes += 1
         output.received_pulses = []
+
+
+def get_reachable_nodes(node_dict, start_nodes):
+    # reachable, but skipping internal connections
+    result = set()
+    to_process = list(start_nodes)
+    while to_process:
+        node = to_process.pop()
+        for dest in node_dict[node].destinations:
+            if dest not in result and not (node in start_nodes and dest in start_nodes):
+                result.add(dest)
+                to_process.append(dest)
+    return result
+
+
+def find_sub_circuit(node_dict, start_node):
+    cur_circuit = [start_node]
+    while get_reachable_nodes(node_dict, cur_circuit).intersection(cur_circuit):
+        for node in cur_circuit:
+            for dest in node_dict[node].destinations:
+                if dest not in cur_circuit:
+                    that_reach = get_reachable_nodes(node_dict, [dest])
+                    if that_reach.intersection(cur_circuit):
+                        cur_circuit.append(dest)
+                        break
+    return cur_circuit
+
+
+def get_state(node_dict):
+    return frozenset({
+        (label, node.is_on)
+        for label, node in node_dict.items()
+        if isinstance(node, FlipFlopNode)
+    })
+
+
+def reset(node_dict):
+    for _, node in node_dict.items():
+        if isinstance(node, FlipFlopNode):
+            node.is_on = False
+
+
+def compute_pattern_atomic(node_dict, output_label):
+    reset(node_dict)
+    cur_state = get_state(node_dict)
+    pushes = 0
+    state_index = {cur_state: pushes}
+    output = node_dict[output_label]
+    output.received_pulses = []  # to be sure
+    while True:
+        button_push(node_dict)
+        pushes += 1
+        # if False in output.received_pulses:
+        #     print(f'Encountered False after {pushes} pushes (output: {output})')
+        node_dict[output_label].received_pulses = []
+        cur_state = get_state(node_dict)
+        if cur_state in state_index:
+            # print(f'Detected cycle: after {pushes} we jump back to state index {state_index[cur_state]}')
+            break
+        state_index[cur_state] = pushes
+    return state_index, pushes
+
+
+def compute_pattern(node_dict):
+    sub_circuits = {label: find_sub_circuit(node_dict, label) for label in node_dict['broadcaster'].destinations}
+    false_cycles = {}
+    for label, sub_circuit in sub_circuits.items():
+        sub_node_dict = {label: node for label, node in node_dict.items() if label in sub_circuit}
+        sub_node_dict['broadcaster'] = BroadcastNode([label])
+        output = list(get_reachable_nodes(node_dict, sub_circuit).difference({'kl', 'rx'}))[0]  # yeah, hardcoded..
+        sub_node_dict[output] = OutputNode()
+        state_index, pulses = compute_pattern_atomic(sub_node_dict, output)
+        # apparently, we do not need to get tricky: first False == last push of cycle, which always jumps back to 0
+        false_cycles[label] = pulses
+    return lcm_multi(list(false_cycles.values()))
+
+
+def lcm_multi(els):
+    if len(els) == 1:
+        return els[0]
+    else:
+        return lcm(els[0], lcm_multi(els[1:]))
 
 
 def main():
@@ -128,7 +211,11 @@ def main():
     node_dict = parse_nodes(input_lines)
     # print(node_dict)
     print(button_mash(node_dict))
-    print(button_repeat_until_output(node_dict))
+    reset(node_dict)
+    # print(button_repeat_until_output(node_dict))
+    assert compute_pattern_atomic(parse_nodes(input_lines2), 'output')[1] == 4
+
+    print(compute_pattern(node_dict))
 
 
 if __name__ == '__main__':
