@@ -72,6 +72,8 @@ def get_reachable_in(start_positions, walls, wall_len, steps, min_coord=None, ma
         reachable_in[i] = get_all_neighbors(
             reachable_in[i - 1], walls, skip_now, wall_len, min_coord=min_coord, max_coord=max_coord
         )
+        if not reachable_in[i]:
+            break
         skip_now.update(reachable_in[i])
     if steps % 2 == 0:
         return result_even
@@ -167,7 +169,7 @@ def get_grid_entry_predictor(base_points, wall_len):
             base_points[base_point][1]
         )
 
-    return predict_grid_arrival
+    return predict_grid_arrival, get_base_point
 
 
 def count_reachable_in_pt2(start_position, walls, wall_len, steps):
@@ -179,13 +181,13 @@ def count_reachable_in_pt2(start_position, walls, wall_len, steps):
     grid_odd = {}
     grid_even = {}
     grid_first_visit = {(0, 0): (0, start_position, [])}
-    distance_map = {}
     neighbor_map = {
         (i, j): get_neighbors((i, j), walls, set(), wall_len)
         for i in range(wall_len)
         for j in range(wall_len)
         if (i, j) not in walls
     }
+    distance_map = {start_position: dijkstra_steps(neighbor_map, start_position)}
     arrival_base_points = {}
     for i in range(1, steps + 1):
         grid_now = grid_even if i % 2 == 0 else grid_odd
@@ -198,14 +200,17 @@ def count_reachable_in_pt2(start_position, walls, wall_len, steps):
         for new_el_x, new_el_y in reachable_in[i]:
             grid_i = new_el_x // wall_len
             grid_j = new_el_y // wall_len
+            new_wall_pos = (new_el_x % wall_len, new_el_y % wall_len)
             if (grid_i, grid_j) not in grid_now:
                 grid_now[(grid_i, grid_j)] = set()
             if (grid_i, grid_j) not in grid_first_visit:
                 the_neighbors = get_origin_step_neighbors(grid_i, grid_j)
-                grid_first_visit[(grid_i, grid_j)] = (i, (new_el_x % wall_len, new_el_y % wall_len), [
+                grid_first_visit[(grid_i, grid_j)] = (i, new_wall_pos, [
                     (i - grid_first_visit[neighbor][0], neighbor)
                     for neighbor in the_neighbors
                 ])
+                if new_wall_pos not in distance_map:
+                    distance_map[new_wall_pos] = dijkstra_steps(neighbor_map, new_wall_pos)
                 if the_neighbors and all((
                     i - grid_first_visit[origin_neighbor][0] == wall_len
                     for origin_neighbor in the_neighbors
@@ -216,12 +221,10 @@ def count_reachable_in_pt2(start_position, walls, wall_len, steps):
             else:
                 # check that the reached tile is close to the first one, and otherwise store it as an entrypoint
                 old_steps, (old_el_x, old_el_y), _ = grid_first_visit[(grid_i, grid_j)]
-                if (old_el_x, old_el_y) not in distance_map:
-                    distance_map[(old_el_x, old_el_y)] = dijkstra_steps(neighbor_map, (old_el_x, old_el_y))
-                    old_to_new = distance_map[(old_el_x, old_el_y)][(new_el_x % wall_len, new_el_y % wall_len)]
-                    if old_to_new + old_steps > i:
-                        print(f'Found additional entry point to {grid_i, grid_j}: '
-                              f'{new_el_x % wall_len, new_el_y % wall_len} in {i} steps')
+                old_to_new = distance_map[(old_el_x, old_el_y)][new_wall_pos]
+                if old_to_new + old_steps > i:
+                    print(f'Found additional entry point to {grid_i, grid_j}: '
+                          f'{new_wall_pos} in {i} steps (< {old_to_new} + {old_steps} from {old_el_x, old_el_y} )')
             grid_now[(grid_i, grid_j)].add((new_el_x % wall_len, new_el_y % wall_len))
             if len(grid_now[(grid_i, grid_j)]) == len(cur_filled):
                 grids_to_remove.add((grid_i, grid_j))
@@ -231,83 +234,160 @@ def count_reachable_in_pt2(start_position, walls, wall_len, steps):
             print(f'Quitting, enough info for extrapolation: {arrival_base_points}')
             break
 
-    cur_grid = grid_even if steps % 2 == 0 else grid_odd
-    cur_filled = filled_even if steps % 2 == 0 else filled_odd
+    # cur_grid = grid_even if steps % 2 == 0 else grid_odd
+    # cur_filled = filled_even if steps % 2 == 0 else filled_odd
+    #
+    # num_full_grids = sum((1 for val in cur_grid.values() if val is True))
+    # partial_plots = sum((len(val) for val in cur_grid.values() if val is not True))
+    # print(len(grid_even), num_full_grids)
+    # return partial_plots + len(cur_filled) * num_full_grids
 
-    num_full_grids = sum((1 for val in cur_grid.values() if val is True))
-    partial_plots = sum((len(val) for val in cur_grid.values() if val is not True))
-    print(len(grid_even), num_full_grids)
-
-    def predict_grid_arrival(grid_pos):
-        grid_i, grid_j = grid_pos
-        if grid_i == 0:
-            if grid_j < 0:
-                first_sane_left_j = -1 * next((
-                    m
-                    for m in range(1, 20) if
-                    grid_first_visit[(0, -1 * m)][0] - grid_first_visit[(0, -1 * m + 1)][0] == wall_len
-                ))
-                if grid_j > first_sane_left_j:
-                    return None  # grid_first_visit[(0, grid_j)][0]
-                dist_to_sane = grid_first_visit[(0, first_sane_left_j)][0]
-                return dist_to_sane + (first_sane_left_j - grid_j) * wall_len
-            elif grid_j > 0:
-                first_sane_left_j = next((
-                    m
-                    for m in range(1, 20) if
-                    grid_first_visit[(0, m)][0] - grid_first_visit[(0, m - 1)][0] == wall_len
-                ))
-                if grid_j < first_sane_left_j:
-                    return None  # grid_first_visit[(0, grid_j)][0]
-                dist_to_sane = grid_first_visit[(0, first_sane_left_j)][0]
-                return dist_to_sane + (grid_j - first_sane_left_j) * wall_len
-        else:
-            if grid_j == 0:
-                if grid_i < 0:
-                    first_sane_left_i = -1 * next((
-                        m
-                        for m in range(1, 20) if
-                        grid_first_visit[(-1 * m, 0)][0] - grid_first_visit[(-1 * m + 1, 0)][0] == wall_len
-                    ))
-                    if grid_i > first_sane_left_i:
-                        return None  # grid_first_visit[(grid_i, 0)][0]
-                    dist_to_sane = grid_first_visit[(first_sane_left_i, 0)][0]
-                    return dist_to_sane + (first_sane_left_i - grid_i) * wall_len
-                elif grid_i > 0:
-                    first_sane_left_i = next((
-                        m
-                        for m in range(1, 20) if
-                        grid_first_visit[(m, 0)][0] - grid_first_visit[(m - 1, 0)][0] == wall_len
-                    ))
-                    if grid_i < first_sane_left_i:
-                        return None  # grid_first_visit[(grid_i, 0)][0]
-                    dist_to_sane = grid_first_visit[(first_sane_left_i, 0)][0]
-                    return dist_to_sane + (grid_i - first_sane_left_i) * wall_len
-            else:
-                # lies in a quadrant!
-                # we assume that (sign * 1, sign * 1) is a good starting point?
-                start_grid_pos = (1 if grid_i > 0 else -1, 1 if grid_j > 0 else -1)
-                dist_to_start = grid_first_visit[start_grid_pos][0]
-                return dist_to_start + (abs(start_grid_pos[0] - grid_i) + abs(start_grid_pos[1] - grid_j)) * wall_len
-
-    entry_predictor = get_grid_entry_predictor(arrival_base_points, wall_len)
+    entry_predictor, get_base_point = get_grid_entry_predictor(arrival_base_points, wall_len)
     for grid_pos, (steps, arrive_pos, neighbor_dists) in grid_first_visit.items():
-        print(f'Grid: {grid_pos} arrive info: {steps, predict_grid_arrival(grid_pos), entry_predictor(grid_pos)[0], arrive_pos, neighbor_dists}')
-    # print(grid_first_visit)
-    return partial_plots + len(cur_filled) * num_full_grids
+        print(f'Grid: {grid_pos} arrive info: {steps, entry_predictor(grid_pos)[0], arrive_pos, neighbor_dists}')
+
+    longest_internal_dist = (max((
+        max(distance_map[internal_coord].values())
+        for grid_coord, (steps, internal_coord) in arrival_base_points.items()
+    )))  # is always 2 * wall_len, to go from bot_left to top_right. there is no internal maze
+
+    ypos_base = get_base_point((0, 999))
+    yneg_base = get_base_point((0, -999))
+    xpos_base = get_base_point((999, 0))
+    xneg_base = get_base_point((-999, 0))
+    result_base = get_reachable_in([start_position], walls, wall_len, steps,
+                              min_coord=min(
+                                  yneg_base[1] * wall_len + arrival_base_points[yneg_base][1][1],
+                                  xneg_base[0] * wall_len + arrival_base_points[xneg_base][1][0]
+                              ) + 1,
+                              max_coord=max(
+                                  ypos_base[1] * wall_len + arrival_base_points[yneg_base][1][1],
+                                  xpos_base[0] * wall_len + arrival_base_points[xneg_base][1][0]
+                              ) + 1)
+    print(result_base)
+    result = set([
+        (i // wall_len, j // wall_len)
+        for (i, j) in result_base if
+        (i // wall_len == 0 and yneg_base[1] < j // wall_len < ypos_base[1]) or
+        (j // wall_len == 0 and xneg_base[0] < i // wall_len < xpos_base[0])
+    ])  # only care about results in the +
+    print(result)
+    print(xneg_base, xpos_base)
+    print(yneg_base, ypos_base)
+
+    # big_ypos_steps = (steps - arrival_base_points[][0]) // wall_len - 2
+    # result +=
+
+
+def positions_to_string(positions, walls, wall_len):
+    min_x = min((pos[0] for pos in positions))
+    max_x = max((pos[0] for pos in positions))
+    min_y = min((pos[1] for pos in positions))
+    max_y = max((pos[1] for pos in positions))
+    return '\n'.join(
+        ('\n' if i % wall_len == 0 else '') +
+        ''.join(
+            (('|' if j % wall_len == 0 else '') +
+             ('.' if (i % wall_len, j % wall_len) in walls else (
+                'O' if (i, j) in positions else '.'
+             )))
+            for j in range(min_y, max_y + 1)
+        )
+        for i in range(min_x, max_x + 1)
+    )
+
+
+def get_positions_in_grid(positions, grid_i, grid_j, side_len):
+    return ([
+        (i, j)
+        for (i, j) in positions if
+        (i // side_len == grid_i and j // side_len == grid_j)
+    ])
+
+
+def count_reachable_in_pt3(start, walls, side_len, steps):
+    if steps <= side_len:
+        return len(get_reachable_in([start], walls, side_len, steps))
+    limited_steps = get_reachable_in(
+        [start], walls, side_len, steps % side_len + 1 * side_len,
+        min_coord=float('-inf'),
+        max_coord=float('inf')
+    )  # between 2 * and 3 * steps
+    print(positions_to_string(limited_steps, walls, side_len))
+
+    base_steps = get_reachable_in(
+        [start], walls, side_len, steps % side_len + 2 * side_len,
+        min_coord=float('-inf'),
+        max_coord=float('inf')
+    )  # between 2 * and 3 * steps
+    print(positions_to_string(base_steps, walls, side_len))
+
+    base_steps = get_reachable_in(
+        [start], walls, side_len, steps % side_len + 3 * side_len,
+        min_coord=float('-inf'),
+        max_coord=float('inf')
+    )  # between 2 * and 3 * steps
+    print(positions_to_string(limited_steps, walls, side_len))
+
+    limited_steps = get_reachable_in(
+        [start], walls, side_len, steps % side_len + 4 * side_len,
+        min_coord=float('-inf'),
+        max_coord=float('inf')
+    )  # between 2 * and 3 * steps
+    print(positions_to_string(limited_steps, walls, side_len))
+
+    filled_odd, filled_even, filling_steps = compute_filled_garden(start, walls, side_len)
+    top_left_quadrant = get_positions_in_grid(base_steps, -1, -2, side_len)
+    top_left_quadrant2 = get_positions_in_grid(base_steps, -1, -3, side_len)
+    print(positions_to_string(top_left_quadrant, walls, side_len))
+
+    print(len(limited_steps))
+    print(len(base_steps) + 7 * len(filled_odd) + 5 * len(filled_even) + len(top_left_quadrant) +
+          len(top_left_quadrant2) +
+          len(get_positions_in_grid(base_steps, 1, -2, side_len)) +
+          len(get_positions_in_grid(base_steps, 1, -3, side_len)) +
+          len(get_positions_in_grid(base_steps, -1, 2, side_len)) +
+          len(get_positions_in_grid(base_steps, -1, 3, side_len)) +
+          len(get_positions_in_grid(base_steps, 1, 2, side_len)) +
+          len(get_positions_in_grid(base_steps, 1, 3, side_len))
+    )
+
+    limited_steps2 = get_reachable_in(
+        [start], walls, side_len, steps % side_len + 5 * side_len,
+        min_coord=float('-inf'),
+        max_coord=float('inf')
+    )  # between 2 * and 3 * steps
+    print(positions_to_string(limited_steps, walls, side_len))
+
+    filled_odd, filled_even, filling_steps = compute_filled_garden(start, walls, side_len)
+    top_left_quadrant = get_positions_in_grid(base_steps, -1, -2, side_len)
+    top_left_quadrant2 = get_positions_in_grid(base_steps, -1, -3, side_len)
+    print(positions_to_string(top_left_quadrant, walls, side_len))
+    # print(positions_to_string(top_left_quadrant2, walls, side_len))
+
+    print(len(limited_steps2))
+    print(len(limited_steps) + 9 * len(filled_odd) + 7 * len(filled_even) + len(top_left_quadrant) +
+          len(top_left_quadrant2) +
+          len(get_positions_in_grid(base_steps, 1, -2, side_len)) +
+          len(get_positions_in_grid(base_steps, 1, -3, side_len)) +
+          len(get_positions_in_grid(base_steps, -1, 2, side_len)) +
+          len(get_positions_in_grid(base_steps, -1, 3, side_len)) +
+          len(get_positions_in_grid(base_steps, 1, 2, side_len)) +
+          len(get_positions_in_grid(base_steps, 1, 3, side_len))
+    )
 
 
 def main():
     with open('input/day21_input.txt') as f:
         input_lines = f.readlines()
-    input_lines2 = TEST.splitlines()
+    input_lines = TEST.splitlines()
     # real input has open line in the center! that makes it easier... the test input is harder in that sense
     start, walls, side_len = parse_garden(input_lines)
     print(len(get_reachable_in([start], walls, side_len, 64)))
 
     print(len(get_reachable_in([start], walls, side_len, 6)))
-    print(len(get_reachable_in([start], walls, side_len, 400, float('-inf'), float('inf'))))
-    print(count_reachable_in_pt2(start, walls, side_len, 400))
+    # print(len(get_reachable_in([start], walls, side_len, 400, float('-inf'), float('inf'))))
+    print(count_reachable_in_pt3(start, walls, side_len, 400))
     print(side_len)
 
     # print([i for i in range(1, side_len - 1) if not any((i, j) in walls for j in range(1, side_len - 1))])
