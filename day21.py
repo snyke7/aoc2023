@@ -306,75 +306,106 @@ def get_positions_in_grid(positions, grid_i, grid_j, side_len):
 
 
 def count_reachable_in_pt3(start, walls, side_len, steps):
-    if steps <= side_len:
+    if steps <= 4 * side_len:
         return len(get_reachable_in([start], walls, side_len, steps))
-    limited_steps = get_reachable_in(
-        [start], walls, side_len, steps % side_len + 1 * side_len,
-        min_coord=float('-inf'),
-        max_coord=float('inf')
-    )  # between 2 * and 3 * steps
-    print(positions_to_string(limited_steps, walls, side_len))
 
-    base_steps = get_reachable_in(
-        [start], walls, side_len, steps % side_len + 2 * side_len,
-        min_coord=float('-inf'),
-        max_coord=float('inf')
-    )  # between 2 * and 3 * steps
-    print(positions_to_string(base_steps, walls, side_len))
+    def get_my_reachable_for_big_step(m):
+        return get_reachable_in(
+            [start], walls, side_len, steps % side_len + m * side_len,
+            min_coord=float('-inf'),
+            max_coord=float('inf')
+        )
 
-    base_steps = get_reachable_in(
-        [start], walls, side_len, steps % side_len + 3 * side_len,
-        min_coord=float('-inf'),
-        max_coord=float('inf')
-    )  # between 2 * and 3 * steps
-    print(positions_to_string(limited_steps, walls, side_len))
-
-    limited_steps = get_reachable_in(
-        [start], walls, side_len, steps % side_len + 4 * side_len,
-        min_coord=float('-inf'),
-        max_coord=float('inf')
-    )  # between 2 * and 3 * steps
-    print(positions_to_string(limited_steps, walls, side_len))
-
+    n = 2
     filled_odd, filled_even, filling_steps = compute_filled_garden(start, walls, side_len)
-    top_left_quadrant = get_positions_in_grid(base_steps, -1, -2, side_len)
-    top_left_quadrant2 = get_positions_in_grid(base_steps, -1, -3, side_len)
-    print(positions_to_string(top_left_quadrant, walls, side_len))
+    result_base = 0
+    add_per_step = 0
+    while True:
+        base_steps = get_my_reachable_for_big_step(n)
+        next_steps = get_my_reachable_for_big_step(n + 1)
+        add_per_step = (
+            len(get_positions_in_grid(base_steps, -1, -1 * n, side_len)) +
+            len(get_positions_in_grid(base_steps, -1, -1 * (n - 1), side_len)) +
+            len(get_positions_in_grid(base_steps, 1, -1 * n, side_len)) +
+            len(get_positions_in_grid(base_steps, 1, -1 * (n - 1), side_len)) +
+            len(get_positions_in_grid(base_steps, -1, n, side_len)) +
+            len(get_positions_in_grid(base_steps, -1, n - 1, side_len)) +
+            len(get_positions_in_grid(base_steps, 1, n, side_len)) +
+            len(get_positions_in_grid(base_steps, 1, n - 1, side_len))
+        )
+        computed_next_steps = (
+            len(base_steps) + (2 * n + 1) * len(filled_odd) + (2 * n - 1) * len(filled_even) + add_per_step
+        )
+        if len(next_steps) == computed_next_steps:
+            result_base = len(base_steps)
+            break
+        else:
+            print(f'Not yet, {len(next_steps)} vs {computed_next_steps}')
+        n += 1
 
-    print(len(limited_steps))
-    print(len(base_steps) + 7 * len(filled_odd) + 5 * len(filled_even) + len(top_left_quadrant) +
-          len(top_left_quadrant2) +
-          len(get_positions_in_grid(base_steps, 1, -2, side_len)) +
-          len(get_positions_in_grid(base_steps, 1, -3, side_len)) +
-          len(get_positions_in_grid(base_steps, -1, 2, side_len)) +
-          len(get_positions_in_grid(base_steps, -1, 3, side_len)) +
-          len(get_positions_in_grid(base_steps, 1, 2, side_len)) +
-          len(get_positions_in_grid(base_steps, 1, 3, side_len))
-    )
+    while n * side_len + steps % side_len < steps:
+        result_base += add_per_step
+        result_base += (2 * n + 1) * len(filled_odd) + (2 * n - 1) * len(filled_even)
+        n += 1
+        if n <= 6:
+            print(n * side_len + steps % side_len, result_base)
+            print(f'Check: {len(get_my_reachable_for_big_step(n))}')
+    return result_base
 
-    limited_steps2 = get_reachable_in(
-        [start], walls, side_len, steps % side_len + 5 * side_len,
-        min_coord=float('-inf'),
-        max_coord=float('inf')
-    )  # between 2 * and 3 * steps
-    print(positions_to_string(limited_steps, walls, side_len))
-
-    filled_odd, filled_even, filling_steps = compute_filled_garden(start, walls, side_len)
-    top_left_quadrant = get_positions_in_grid(base_steps, -1, -2, side_len)
-    top_left_quadrant2 = get_positions_in_grid(base_steps, -1, -3, side_len)
-    print(positions_to_string(top_left_quadrant, walls, side_len))
-    # print(positions_to_string(top_left_quadrant2, walls, side_len))
-
-    print(len(limited_steps2))
-    print(len(limited_steps) + 9 * len(filled_odd) + 7 * len(filled_even) + len(top_left_quadrant) +
-          len(top_left_quadrant2) +
-          len(get_positions_in_grid(base_steps, 1, -2, side_len)) +
-          len(get_positions_in_grid(base_steps, 1, -3, side_len)) +
-          len(get_positions_in_grid(base_steps, -1, 2, side_len)) +
-          len(get_positions_in_grid(base_steps, -1, 3, side_len)) +
-          len(get_positions_in_grid(base_steps, 1, 2, side_len)) +
-          len(get_positions_in_grid(base_steps, 1, 3, side_len))
-    )
+    # base_steps = get_reachable_in(
+    #     [start], walls, side_len, steps % side_len + 3 * side_len,
+    #     min_coord=float('-inf'),
+    #     max_coord=float('inf')
+    # )  # between 2 * and 3 * steps
+    # print(positions_to_string(base_steps, walls, side_len))
+    #
+    # limited_steps = get_reachable_in(
+    #     [start], walls, side_len, steps % side_len + 4 * side_len,
+    #     min_coord=float('-inf'),
+    #     max_coord=float('inf')
+    # )  # between 2 * and 3 * steps
+    # print(positions_to_string(limited_steps, walls, side_len))
+    #
+    # filled_odd, filled_even, filling_steps = compute_filled_garden(start, walls, side_len)
+    # top_left_quadrant = get_positions_in_grid(base_steps, -1, -2, side_len)
+    # top_left_quadrant2 = get_positions_in_grid(base_steps, -1, -3, side_len)
+    # print(positions_to_string(top_left_quadrant, walls, side_len))
+    #
+    # print(len(limited_steps))
+    # print(len(base_steps) + 7 * len(filled_odd) + 5 * len(filled_even) +
+    #       len(top_left_quadrant) +
+    #       len(top_left_quadrant2) +
+    #       len(get_positions_in_grid(base_steps, 1, -2, side_len)) +
+    #       len(get_positions_in_grid(base_steps, 1, -3, side_len)) +
+    #       len(get_positions_in_grid(base_steps, -1, 2, side_len)) +
+    #       len(get_positions_in_grid(base_steps, -1, 3, side_len)) +
+    #       len(get_positions_in_grid(base_steps, 1, 2, side_len)) +
+    #       len(get_positions_in_grid(base_steps, 1, 3, side_len))
+    # )
+    #
+    # limited_steps2 = get_reachable_in(
+    #     [start], walls, side_len, steps % side_len + 5 * side_len,
+    #     min_coord=float('-inf'),
+    #     max_coord=float('inf')
+    # )  # between 2 * and 3 * steps
+    # print(positions_to_string(limited_steps, walls, side_len))
+    #
+    # filled_odd, filled_even, filling_steps = compute_filled_garden(start, walls, side_len)
+    # top_left_quadrant = get_positions_in_grid(base_steps, -1, -2, side_len)
+    # top_left_quadrant2 = get_positions_in_grid(base_steps, -1, -3, side_len)
+    # print(positions_to_string(top_left_quadrant, walls, side_len))
+    # # print(positions_to_string(top_left_quadrant2, walls, side_len))
+    #
+    # print(len(limited_steps2))
+    # print(len(limited_steps) + 9 * len(filled_odd) + 7 * len(filled_even) + len(top_left_quadrant) +
+    #       len(top_left_quadrant2) +
+    #       len(get_positions_in_grid(base_steps, 1, -2, side_len)) +
+    #       len(get_positions_in_grid(base_steps, 1, -3, side_len)) +
+    #       len(get_positions_in_grid(base_steps, -1, 2, side_len)) +
+    #       len(get_positions_in_grid(base_steps, -1, 3, side_len)) +
+    #       len(get_positions_in_grid(base_steps, 1, 2, side_len)) +
+    #       len(get_positions_in_grid(base_steps, 1, 3, side_len))
+    # )
 
 
 def main():
@@ -386,7 +417,7 @@ def main():
     print(len(get_reachable_in([start], walls, side_len, 64)))
 
     print(len(get_reachable_in([start], walls, side_len, 6)))
-    # print(len(get_reachable_in([start], walls, side_len, 400, float('-inf'), float('inf'))))
+    print(len(get_reachable_in([start], walls, side_len, 400, float('-inf'), float('inf'))))
     print(count_reachable_in_pt3(start, walls, side_len, 400))
     print(side_len)
 
