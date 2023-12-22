@@ -1,2 +1,3 @@
 .idea/*
 pypy-venv/*
+**/__pycache__/*
