@@ -1,4 +1,4 @@
-from typing import Tuple, Set, Dict, List, Generator, Iterable
+from typing import Tuple, List, Generator, Iterable
 from collections import defaultdict
 
 Cube = Tuple[int, int, int]
@@ -12,25 +12,6 @@ TEST = '''1,0,1~1,2,1
 2,0,5~2,2,5
 0,1,6~2,1,6
 1,1,8~1,1,9'''
-
-
-def gen_neighbors(cube: Cube):
-    x, y, z = cube
-    yield x + 1, y, z
-    yield x - 1, y, z
-    yield x, y - 1, z
-    yield x, y + 1, z
-    yield x, y, z - 1
-    yield x, y, z + 1
-
-
-def count_side(cube: Cube, cubes: Set[Cube], interior):
-    return sum((1 for neighbor in gen_neighbors(cube)
-                if neighbor not in cubes and (interior is None or neighbor not in interior)))
-
-
-def count_sides(cubes: Set[Cube], interior=None):
-    return sum((count_side(cube, cubes, interior=interior) for cube in cubes))
 
 
 def get_min_bb_cube(cubes: List[Cube]) -> Cube:
@@ -54,15 +35,6 @@ def rectangle_iter(left: Cube, right: Cube) -> Generator[Cube, None, None]:
         for y in range(miny, maxy + 1):
             for z in range(minz, maxz + 1):
                 yield x, y, z
-
-
-def in_bound(min_cube: Cube, max_cube: Cube, the_cube: Cube) -> bool:
-    minx, miny, minz = min_cube
-    maxx, maxy, maxz = max_cube
-    x, y, z = the_cube
-    return (minx <= x <= maxx and
-            miny <= y <= maxy and
-            minz <= z <= maxz)
 
 
 def parse_cube(cube_str) -> Cube:
@@ -103,31 +75,30 @@ def touches_ground(rects_on_ground: Iterable[Rectangle], rect: Rectangle):
 
 
 def fall_down(rectangles: List[Rectangle], verbose=False):
+    # top-down view: highest z value for a given coordinate (x, y)
     highest_z = defaultdict(lambda: 0)
     on_ground = []
+    # sort the falling rectangles with z-lowest last
     falling = sorted(rectangles, key=lambda pr: -1 * min(pr[0][2], pr[1][2]))
     time = 0
     falls = 0
 
     def do_drop(rect):
         falling.remove(rect)
-        my_caused_falls = 0
-        counted_my_fall = False
+        did_fall = False
         while True:
-            touch_ground = False
-            for x, y, z in rectangle_iter(*rect):
-                if highest_z[(x, y)] + 1 == z:
-                    touch_ground = True
-                    break
-            if touch_ground:
-                for x, y, z in rectangle_iter(*rect):
-                    highest_z[(x, y)] = max(highest_z[(x, y)], z)
-                on_ground.append(rect)
-                return my_caused_falls
+            if any((highest_z[(x, y)] + 1 == z for x, y, z in rectangle_iter(*rect))):
+                # rect is just above another rectangle, so we are done
+                break
             rect = move_down(rect)
-            if not counted_my_fall:
-                my_caused_falls += 1
-                counted_my_fall = True
+            if not did_fall:
+                did_fall = True
+
+        for x, y, z in rectangle_iter(*rect):
+            # update the highest-z map. We need max to not care about vertical blocks
+            highest_z[(x, y)] = max(highest_z[(x, y)], z)
+        on_ground.append(rect)
+        return 1 if did_fall else 0
 
     while falling:
         falls += do_drop(falling[-1])
