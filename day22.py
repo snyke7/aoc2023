@@ -1,4 +1,5 @@
 from typing import Tuple, Set, Dict, List, Generator, Iterable
+from collections import defaultdict
 
 Cube = Tuple[int, int, int]
 Rectangle = Tuple[Cube, Cube]
@@ -102,9 +103,9 @@ def touches_ground(rects_on_ground: Iterable[Rectangle], rect: Rectangle):
 
 
 def fall_down(rectangles: List[Rectangle], verbose=False):
-    # this is quite slow (~2 minutes with pypy), but is somewhat easy to understand
+    highest_z = defaultdict(lambda: 0)
     on_ground = []
-    falling = rectangles
+    falling = sorted(rectangles, key=lambda pr: -1 * min(pr[0][2], pr[1][2]))
     time = 0
     falls = 0
 
@@ -113,27 +114,20 @@ def fall_down(rectangles: List[Rectangle], verbose=False):
         my_caused_falls = 0
         counted_my_fall = False
         while True:
-            if touches_ground(on_ground, rect):
+            touch_ground = False
+            for x, y, z in rectangle_iter(*rect):
+                if highest_z[(x, y)] + 1 == z:
+                    touch_ground = True
+                    break
+            if touch_ground:
+                for x, y, z in rectangle_iter(*rect):
+                    highest_z[(x, y)] = max(highest_z[(x, y)], z)
                 on_ground.append(rect)
-                if len(on_ground) % 100 == 99 and verbose:
-                    print(f'{len(on_ground)} cubes on ground.')
                 return my_caused_falls
-            touch_in_fall = list(get_down_touching(falling, rect))
-            if not touch_in_fall:
-                rect = move_down(rect)
-                if not counted_my_fall:
-                    my_caused_falls += 1
-                    counted_my_fall = True
-            else:
-                minimum_drop = float('inf')
-                for touch in touch_in_fall:
-                    their_drop = do_drop(touch)
-                    if their_drop < minimum_drop:
-                        minimum_drop = their_drop
-                    my_caused_falls += their_drop
-                # if minimum_drop == 0:
-                #     on_ground.append(rect)
-                #     return my_caused_falls
+            rect = move_down(rect)
+            if not counted_my_fall:
+                my_caused_falls += 1
+                counted_my_fall = True
 
     while falling:
         falls += do_drop(falling[-1])
@@ -186,7 +180,7 @@ def main():
         parse_cube_pair(line)
         for line in input_lines
     ]
-    fallen, _ = fall_down(cube_pairs, verbose=True)
+    fallen, _ = fall_down(cube_pairs, verbose=False)
     touch_down, touch_up = build_support_map(fallen)
     safe_disintegrable = [
         rect for rect in fallen if
@@ -202,11 +196,10 @@ def main():
     for the_rect in to_disintegrate:
         unsafe_fall_rects = list(construct_pyramid_from([the_rect], touch_up, touch_down))
         unsafe_fall_rects.remove(the_rect)
-        print(f'Disintegrating {the_rect}')
         _, unsafe_falls = fall_down(unsafe_fall_rects)
-        print(f'Caused {unsafe_falls} falls')
+        # print(f'Disintegrating {the_rect} -> caused {unsafe_falls} falls')
         result += unsafe_falls
-    print(f'Total: {result}')  # < 80757
+    print(f'{result}')  # < 80757
 
 
 if __name__ == '__main__':
