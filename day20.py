@@ -1,7 +1,7 @@
 from typing import List, Any, Dict, Tuple
 from day08 import lcm
 
-from attr import define
+from attr import define, Factory
 
 TEST1 = '''broadcaster -> a, b, c
 %a -> b
@@ -49,8 +49,8 @@ class BroadcastNode:
 
 @define
 class OutputNode:
-    received_pulses: List[bool] = []
-    destinations: List[str] = []
+    received_pulses: List[bool] = Factory(list)
+    destinations: List[str] = Factory(list)
 
     def receive_pulse(self, from_label: str, is_high: bool) -> List[Tuple[str, bool]]:
         self.received_pulses.append(is_high)
@@ -81,12 +81,14 @@ def parse_nodes(input_lines):
     return node_dict
 
 
-def button_push(node_dict):
+def button_push(node_dict, verbose=False):
     pulses_to_process = [('broadcaster', False, 'button')]
     low_count = 0
     high_count = 0
     while pulses_to_process:
         dest, is_high, src = pulses_to_process.pop(0)
+        if verbose:
+            print(f'{src} -{"high" if is_high else "low"}> {dest}')
         if is_high:
             high_count += 1
         else:
@@ -162,7 +164,7 @@ def reset(node_dict):
             node.is_on = False
 
 
-def compute_pattern_atomic(node_dict, output_label):
+def compute_pattern_atomic(node_dict, output_label, verbose=False):
     reset(node_dict)
     cur_state = get_state(node_dict)
     pushes = 0
@@ -170,14 +172,18 @@ def compute_pattern_atomic(node_dict, output_label):
     output = node_dict[output_label]
     output.received_pulses = []  # to be sure
     while True:
-        button_push(node_dict)
+        button_push(node_dict, verbose=verbose)
+        if verbose:
+            print()
         pushes += 1
-        # if False in output.received_pulses:
-        #     print(f'Encountered False after {pushes} pushes (output: {output})')
+        if False in output.received_pulses and verbose:
+            print(f'Encountered False after {pushes} pushes')
         node_dict[output_label].received_pulses = []
         cur_state = get_state(node_dict)
         if cur_state in state_index:
-            # print(f'Detected cycle: after {pushes} we jump back to state index {state_index[cur_state]}')
+            print(f'Detected cycle: after {pushes} we jump back to state index {state_index[cur_state]}')
+            if pushes < 100:
+                print(cur_state)
             break
         state_index[cur_state] = pushes
     return state_index, pushes
@@ -204,6 +210,34 @@ def lcm_multi(els):
         return lcm(els[0], lcm_multi(els[1:]))
 
 
+TEST3 = '''broadcaster -> in
+%in -> middle, inv
+%middle -> inv
+&inv -> out'''
+
+TEST4 = '''broadcaster -> middle1
+%middle1 -> middle2, inv
+%middle2 -> middle3, inv
+%middle3 -> inv, middle4
+%middle4 -> middle5
+%middle5 -> middle6
+%middle6 -> inv, middle7
+%middle7 -> middle8
+%middle8 -> inv, middle9
+%middle9 -> inv, middle10
+%middle10 -> middle11, inv
+%middle11 -> middle12, inv
+%middle12 -> inv
+&inv -> middle7, middle5, middle4, middle1, out'''
+
+TEST5 = '''broadcaster -> middle1
+%middle1 -> middle2, inv
+%middle2 -> middle4, inv
+%middle4 -> middle5, inv
+%middle5 -> inv
+&inv -> middle1, out'''
+
+
 def main():
     with open('input/day20_input.txt') as f:
         input_lines = f.readlines()
@@ -216,6 +250,9 @@ def main():
     assert compute_pattern_atomic(parse_nodes(input_lines2), 'output')[1] == 4
 
     print(compute_pattern(node_dict))
+
+    node_dict3 = parse_nodes(TEST5.splitlines())
+    print(compute_pattern_atomic(node_dict3, 'out', True)[1])
 
 
 if __name__ == '__main__':
