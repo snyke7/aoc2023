@@ -110,42 +110,33 @@ def fall_down(rectangles: List[Rectangle], verbose=False):
 
     def do_drop(rect):
         falling.remove(rect)
-        my_falls = 0
+        my_caused_falls = 0
+        counted_my_fall = False
         while True:
             if touches_ground(on_ground, rect):
                 on_ground.append(rect)
-                return my_falls
+                if len(on_ground) % 100 == 99 and verbose:
+                    print(f'{len(on_ground)} cubes on ground.')
+                return my_caused_falls
             touch_in_fall = list(get_down_touching(falling, rect))
-            if not fall_touching:
+            if not touch_in_fall:
                 rect = move_down(rect)
-                my_falls += 1
+                if not counted_my_fall:
+                    my_caused_falls += 1
+                    counted_my_fall = True
             else:
                 minimum_drop = float('inf')
                 for touch in touch_in_fall:
                     their_drop = do_drop(touch)
                     if their_drop < minimum_drop:
                         minimum_drop = their_drop
-                if minimum_drop == 0:
-                    on_ground.append(rect)
-                    return my_falls
+                    my_caused_falls += their_drop
+                # if minimum_drop == 0:
+                #     on_ground.append(rect)
+                #     return my_caused_falls
 
     while falling:
-        faller = falling.pop()
-        if touches_ground(on_ground, faller):
-            on_ground.append(faller)
-        else:
-            fall_touching = list(get_down_touching(falling, faller))
-            if not fall_touching:
-                # move down, reappend
-                falling.append(move_down(faller))
-                falls += 1
-            else:
-                # pop those fall_touching and reprioritize
-                for toucher in fall_touching:
-                    falling.remove(toucher)
-                falling.append(faller)
-                for toucher in fall_touching:
-                    falling.append(toucher)
+        falls += do_drop(falling[-1])
         time += 1
         if time % 100 == 99 and verbose:
             print(time, len(falling))
@@ -162,6 +153,29 @@ def build_support_map(fallen_rectangles: List[Rectangle]):
                 touch_up[down_rect] = []
             touch_up[down_rect].append(rect)
     return touch_down, touch_up
+
+
+def construct_pyramid_from(base, touch_up, touch_down):
+    to_add = base
+    upward_pyramid = set(base)
+    while to_add:
+        add_now = to_add.pop()
+        if add_now not in touch_up:
+            continue
+        for touch in touch_up[add_now]:
+            if touch not in upward_pyramid:
+                upward_pyramid.add(touch)
+                to_add.append(touch)
+
+    downward_pyramid = upward_pyramid.copy()
+    to_add = list(upward_pyramid)
+    while to_add:
+        add_now = to_add.pop()
+        for touch in touch_down[add_now]:
+            if touch not in downward_pyramid:
+                downward_pyramid.add(touch)
+                to_add.append(touch)
+    return downward_pyramid
 
 
 def main():
@@ -186,13 +200,13 @@ def main():
     result = 0
     to_disintegrate = [rect for rect in fallen if rect not in safe_disintegrable]
     for the_rect in to_disintegrate:
-        unsafe_fall_rects = fallen.copy()
+        unsafe_fall_rects = list(construct_pyramid_from([the_rect], touch_up, touch_down))
         unsafe_fall_rects.remove(the_rect)
         print(f'Disintegrating {the_rect}')
         _, unsafe_falls = fall_down(unsafe_fall_rects)
         print(f'Caused {unsafe_falls} falls')
         result += unsafe_falls
-    print(f'Total: {result}')
+    print(f'Total: {result}')  # < 80757
 
 
 if __name__ == '__main__':
