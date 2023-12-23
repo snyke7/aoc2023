@@ -17,8 +17,12 @@ def dijkstra(graph: Dict[A, List[Tuple[A, int]]], start: A) -> Dict[A, int]:
     return result
 
 
+def step_to_dist_graph(graph: Dict[A, List[A]]) -> Dict[A, List[Tuple[A, int]]]:
+    return {a: [(b, 1) for b in neighbors] for a, neighbors in graph.items()}
+
+
 def dijkstra_steps(graph: Dict[A, List[A]], start: A) -> Dict[A, int]:
-    return dijkstra({a: [(b, 1) for b in neighbors] for a, neighbors in graph.items()}, start)
+    return dijkstra(step_to_dist_graph(graph), start)
 
 
 def file_read_lines(filename: str):
