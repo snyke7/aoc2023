@@ -46,3 +46,14 @@ def add_coord(base: Tuple[int, ...], move: Tuple[int, ...]) -> Tuple[int, ...]:
     return tuple(map(sum, zip(base, move)))
 
 
+def dijkstra_steps_path(graph: Dict[A, List[A]], start: A) -> Dict[A, Tuple[int, List[A]]]:
+    result = {start: (0, [start])}
+    new = [start]
+    while new:
+        node = new.pop(0)
+        cost, path = result[node]
+        for neigbor in graph[node]:
+            if neigbor not in result or result[neigbor][0] > cost + 1:
+                result[neigbor] = cost + 1, path + [neigbor]
+                new.append(neigbor)
+    return result
