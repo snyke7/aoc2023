@@ -1,3 +1,5 @@
+import time
+
 from utils import DIRECTIONS2, add_coord
 
 
@@ -50,10 +52,10 @@ def is_in_bounds(loc, bounds):
 def walk_to(player, direction, obstacles, bounds):
     cur_loc = player
     next_loc = add_coord(cur_loc, direction)
-    walked_locs = set()
+    walked_locs = []
     while next_loc not in obstacles and is_in_bounds(next_loc, bounds):
         cur_loc = next_loc
-        walked_locs.add(cur_loc)
+        walked_locs.append(cur_loc)
         next_loc = add_coord(cur_loc, direction)
     return cur_loc, walked_locs, is_in_bounds(next_loc, bounds)
 
@@ -70,31 +72,58 @@ def print_map(obstacles, walked, bounds):
         print(result)
 
 
-def walk_around(player, obstacles, bounds):
+def walk_around(player, obstacles, bounds, printing=False):
     start_direction_idx = 2  # UP2
-    walked_locs = {player}
+    walked_locs = [player]
     cur_loc = player
     steps = 0
+    corners = []
     while True:
         cur_loc, walked_now, in_bounds = walk_to(cur_loc, DIRECTIONS2[start_direction_idx], obstacles, bounds)
         start_direction_idx = (start_direction_idx - 1) % 4
-        walked_locs.update(walked_now)
+        walked_locs += walked_now
         steps += 1
-        # print_map(obstacles, walked_locs, bounds)
-        # print()
+        if printing:
+            print_map(obstacles, walked_locs, bounds)
+            print()
         if not in_bounds:
-            break
-    print(steps)
-    return len(walked_locs)
+            return walked_locs, corners, False
+        else:
+            if cur_loc not in corners or len(walked_now) == 0:
+                # len(walked_now) is for the case:
+                #
+                #    #
+                #   #XXXXX<
+                #
+                #  left-traveling, bounces first on obstruction, then immediately bounces again
+                corners.append(cur_loc)
+            else:
+                return walked_locs, corners, True
+
+
+def find_loops(player, obstacles, bounds):
+    path, corners, _ = walk_around(player, obstacles, bounds)
+    loop_obs_locations = []
+    for idx, obs_cand in enumerate(path[1:]):
+        # We consider placing an obstruction at obs_cand
+        if obs_cand in loop_obs_locations:  # skip duplicates
+            continue
+        _, _, looped = walk_around(player, obstacles | {obs_cand}, bounds)
+        if looped:
+            # print(f'Looped! {obs_cand}')
+            loop_obs_locations.append(obs_cand)
+    return loop_obs_locations
 
 
 def main():
     test_input = TEST_INPUT.splitlines()
-    test_input = CUSTOM_TEST.splitlines()
+    # test_input = CUSTOM_TEST.splitlines()
     with open('input/day06.txt') as f:
         test_input = f.readlines()
     obstacles, player, bounds = read_map(test_input)
-    print(walk_around(player, obstacles, bounds))
+    print(len(set(walk_around(player, obstacles, bounds)[0])))
+    # complexity is terrible but this still terminates pretty quickly
+    print(len(find_loops(player, obstacles, bounds)))
     # 2619 < result < 5270
 
 
