@@ -40,6 +40,8 @@ UP2 = (-1, 0)
 DOWN2 = (1, 0)
 LEFT2 = (0, -1)
 RIGHT2 = (0, 1)
+# ordered with an anti-clockwise rotation
+DIRECTIONS2 = [DOWN2, RIGHT2, UP2, LEFT2]
 
 
 def add_coord(base: Tuple[int, ...], move: Tuple[int, ...]) -> Tuple[int, ...]:
