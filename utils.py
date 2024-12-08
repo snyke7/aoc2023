@@ -48,6 +48,10 @@ def add_coord(base: Tuple[int, ...], move: Tuple[int, ...]) -> Tuple[int, ...]:
     return tuple(map(sum, zip(base, move)))
 
 
+def sub_coord(base: Tuple[int, ...], sub: Tuple[int, ...]) -> Tuple[int, ...]:
+    return tuple(map(sum, zip(base, map(lambda c: -1*c, sub))))
+
+
 def dijkstra_steps_path(graph: Dict[A, List[A]], start: A) -> Dict[A, Tuple[int, List[A]]]:
     result = {start: (0, [start])}
     new = [start]
