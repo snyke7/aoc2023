@@ -1,4 +1,4 @@
-test_input = '''467..114..
+TEST_INPUT = '''467..114..
 ...*......
 ..35..633.
 ......#...
@@ -59,7 +59,7 @@ def find_gears(num_dict, input_array):
 def main():
     with open('input/day03_input.txt') as f:
         input_lines = f.readlines()
-    input_lines2 = test_input.splitlines()
+    input_lines2 = TEST_INPUT.splitlines()
     input_array = [list(line.strip()) for line in input_lines]
     part1, num_dict = find_engine_parts(input_array)
     print(part1)
