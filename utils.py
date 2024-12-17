@@ -63,3 +63,34 @@ def dijkstra_steps_path(graph: Dict[A, List[A]], start: A) -> Dict[A, Tuple[int,
                 result[neigbor] = cost + 1, path + [neigbor]
                 new.append(neigbor)
     return result
+
+
+def dijkstra_path(graph: Dict[A, List[Tuple[A, int]]], start: A) -> Dict[A, Tuple[int, List[A]]]:
+    result = {start: (0, [start])}
+    new = [start]
+    while new:
+        node = new.pop(0)
+        cost, path = result[node]
+        for neigbor, dist in graph[node]:
+            if neigbor not in result or result[neigbor][0] > cost + dist:
+                result[neigbor] = cost + dist, path + [neigbor]
+                new.append(neigbor)
+    return result
+
+
+def dijkstra_all_paths(graph: Dict[A, List[Tuple[A, int]]], start: A) -> Dict[A, Tuple[int, List[List[A]]]]:
+    result = {start: (0, [[start]])}
+    new = [start]
+    while new:
+        node = new.pop(0)
+        cost, paths = result[node]
+        for neighbor, dist in graph[node]:
+            if neighbor not in result or result[neighbor][0] > cost + dist:
+                # we found a new or shorter path
+                result[neighbor] = cost + dist, [path + [neighbor] for path in paths]
+                new.append(neighbor)
+            elif neighbor in result and result[neighbor][0] == cost + dist:
+                # we found a new path
+                _, existing_paths = result[neighbor]
+                result[neighbor] = cost + dist, existing_paths + [path + [neighbor] for path in paths]
+    return result
