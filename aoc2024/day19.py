@@ -33,20 +33,25 @@ def partial_pattern_maps(towels, depth):
                 short_patterns.add(pat)
             if pat.startswith(el):
                 if el not in result:
-                    result[el] = []
+                    result[el] = {}
+                if pat not in result[el]:
+                    result[el][pat] = []
                 # do we want more?
-                result[el].append([pat])
+                result[el][pat].append([pat])
     if depth <= 1:
         return {depth: result}
     shorter_pattern_maps = partial_pattern_maps(towels, depth - 1)
     for short_pat in short_patterns:
         rem_len = depth - len(short_pat)
-        for postfix, rem_pats in shorter_pattern_maps[rem_len].items():
+        for postfix, rem_pat_dict in shorter_pattern_maps[rem_len].items():
             if short_pat + postfix not in result:
-                result[short_pat + postfix] = []
-            result[short_pat + postfix].extend([
-                [short_pat] + rem_pat for rem_pat in rem_pats
-            ])
+                result[short_pat + postfix] = {}
+            for rem_pat_incl_tail, combs in rem_pat_dict.items():
+                if short_pat + rem_pat_incl_tail not in result[short_pat + postfix]:
+                    result[short_pat + postfix][short_pat + rem_pat_incl_tail] = []
+                result[short_pat + postfix][short_pat + rem_pat_incl_tail].extend([
+                    [short_pat] + rem_pat for rem_pat in combs
+                ])
     shorter_pattern_maps[depth] = result
     return shorter_pattern_maps
 
@@ -56,22 +61,15 @@ def get_towel_combinations(pattern, pattern_maps, depth, towels):
         yield []
         return
     this_depth = min(len(pattern), depth)
-    if this_depth == 0:
-        print('Help')
-        print(repr(pattern))
-        print(depth)
     the_start = pattern[:this_depth]
     if the_start not in pattern_maps[this_depth]:
         return
-    for towel_comb in pattern_maps[this_depth][the_start]:
-        rem_pat = pattern
-        for towel in towel_comb[:-1]:
-            rem_pat = rem_pat[len(towel):]
-        last_towel = towel_comb[-1]
-        if not rem_pat.startswith(last_towel):
+    for full_pat, the_combs in pattern_maps[this_depth][the_start].items():
+        if not pattern.startswith(full_pat):
             continue
-        for comb in get_towel_combinations(rem_pat[len(last_towel):], pattern_maps, depth, towels):
-            yield towel_comb + comb
+        for comb_pat in the_combs:
+            for comb in get_towel_combinations(pattern[len(full_pat):], pattern_maps, depth, towels):
+                yield comb_pat + comb
 
 
 def get_towel_combination_count(pattern, pattern_maps, depth, towels, rec_depth=0):
@@ -82,16 +80,12 @@ def get_towel_combination_count(pattern, pattern_maps, depth, towels, rec_depth=
     if the_start not in pattern_maps[this_depth]:
         return 0
     result = 0
-    for towel_comb in pattern_maps[this_depth][the_start]:
-        rem_pat = pattern
-        for towel in towel_comb[:-1]:
-            rem_pat = rem_pat[len(towel):]
-        last_towel = towel_comb[-1]
-        if not rem_pat.startswith(last_towel):
+    for full_pat, the_combs in pattern_maps[this_depth][the_start].items():
+        if not pattern.startswith(full_pat):
             continue
-        if rec_depth <= 3:
-            print(f'Investigating {the_start} as {towel_comb}')
-        result += get_towel_combination_count(rem_pat[len(last_towel):], pattern_maps, depth, towels, rec_depth=rec_depth+1)
+        # if rec_depth <= 0:
+        #     print(f'Investigating {the_start} as {full_pat}')
+        result += len(the_combs) * get_towel_combination_count(pattern[len(full_pat):], pattern_maps, depth, towels, rec_depth)
     return result
 
 
@@ -124,7 +118,6 @@ def count_combinations(pattern, pattern_map, depth, towels, scan_size):
             for idx in break_indices
         ], key=lambda pr:-pr[1])
         break_idx = with_max_split_lenghts[0][0]
-        print(f'Breaking {pattern} at {break_idx}')
         result = 0
         assert scan_size == 3
         # i = break_idx + 1
@@ -174,7 +167,6 @@ def count_combinations(pattern, pattern_map, depth, towels, scan_size):
         #     long_combinations = count_combinations(longest, pattern_map, depth, towels, scan_size)
         #     result += short_combinations * long_combinations
         # return result
-    print(f'Directly computing combinations for {pattern}')
     return get_towel_combination_count(pattern, pattern_map, depth, towels)
 
 
