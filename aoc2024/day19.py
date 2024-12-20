@@ -74,6 +74,27 @@ def get_towel_combinations(pattern, pattern_maps, depth, towels):
             yield towel_comb + comb
 
 
+def get_towel_combination_count(pattern, pattern_maps, depth, towels, rec_depth=0):
+    if not pattern:
+        return 1
+    this_depth = min(len(pattern), depth)
+    the_start = pattern[:this_depth]
+    if the_start not in pattern_maps[this_depth]:
+        return 0
+    result = 0
+    for towel_comb in pattern_maps[this_depth][the_start]:
+        rem_pat = pattern
+        for towel in towel_comb[:-1]:
+            rem_pat = rem_pat[len(towel):]
+        last_towel = towel_comb[-1]
+        if not rem_pat.startswith(last_towel):
+            continue
+        if rec_depth <= 3:
+            print(f'Investigating {the_start} as {towel_comb}')
+        result += get_towel_combination_count(rem_pat[len(last_towel):], pattern_maps, depth, towels, rec_depth=rec_depth+1)
+    return result
+
+
 def can_make_pattern(pattern, pattern_map, depth, towels, scan_size):
     break_indices = find_guaranteed_breaks(pattern, towels, scan_size)
     if break_indices:
@@ -103,18 +124,58 @@ def count_combinations(pattern, pattern_map, depth, towels, scan_size):
             for idx in break_indices
         ], key=lambda pr:-pr[1])
         break_idx = with_max_split_lenghts[0][0]
-        # print(f'Breaking {pattern} at {break_idx}')
+        print(f'Breaking {pattern} at {break_idx}')
         result = 0
-        for i in range(break_idx + 1, break_idx + scan_size - 1):
-            shortest = pattern[:i] if len(pattern[:i]) < len(pattern[i:]) else pattern[i:]
-            longest = pattern[i:] if len(pattern[:i]) < len(pattern[i:]) else pattern[:i]
-            short_combinations = count_combinations(shortest, pattern_map, depth, towels, scan_size)
-            if short_combinations == 0:
-                continue
-            long_combinations = count_combinations(longest, pattern_map, depth, towels, scan_size)
-            result += short_combinations * long_combinations
-        return result
-    return len(list(get_towel_combinations(pattern, pattern_map, depth, towels)))
+        assert scan_size == 3
+        # i = break_idx + 1
+        # j = break_idx + 2
+        # total = break_at1_not2 + break_at2_not1 + break_at1_and2
+        # break_at1 = break_at1_not2 + break_at1_and2
+        # break_at2 = break_at2_not1 + break_at1_and2
+        # so we substract everything that breaks at both 1 and 2
+        # break_at1 = comb_upto1 * comb_from1
+        # break_at2 = comb_upto2 * comb_from2
+        # break_at1_and2 = comb_upto1 * (0 or 1) * comb_from2
+        upto_1 = pattern[:break_idx + 1]
+        from_1 = pattern[break_idx + 1:]
+        upto_2 = pattern[:break_idx + 2]
+        from_2 = pattern[break_idx + 2:]
+        if pattern[break_idx + 1] in towels:
+            upto1_combs = count_combinations(upto_1, pattern_map, depth, towels, scan_size)
+            from1_combs = count_combinations(from_1, pattern_map, depth, towels, scan_size)
+            # take extra care
+            upto2_combs = count_combinations(upto_2, pattern_map, depth, towels, scan_size)
+            from2_combs = count_combinations(from_2, pattern_map, depth, towels, scan_size)
+            return upto1_combs * from1_combs + upto2_combs * from2_combs - upto1_combs * from2_combs
+        else:
+            shortest_1, longest_1 = tuple(sorted([upto_1, from_1], key=lambda pr: len(pr)))
+            short1_combs = count_combinations(shortest_1, pattern_map, depth, towels, scan_size)
+            shortest_2, longest_2 = tuple(sorted([upto_2, from_2], key=lambda pr: len(pr)))
+            short2_combs = count_combinations(shortest_2, pattern_map, depth, towels, scan_size)
+            if short1_combs == 0:
+                combs1 = 0
+            else:
+                combs1 = short1_combs * count_combinations(longest_1, pattern_map, depth, towels, scan_size)
+            if short2_combs == 0:
+                combs2 = 0
+            else:
+                combs2 = short2_combs * count_combinations(longest_2, pattern_map, depth, towels, scan_size)
+            return combs1 + combs2
+        # for i in range(break_idx + 1, break_idx + scan_size):
+        #     print(f'into {pattern[:i]} and {pattern[i:]}')
+        #     # the naive look counts stuff double here, if we can break both at
+        #     # i, and at break_idx.
+        #     # with a fixed scan_size of 3, the situation is simpler, tho
+        #     shortest = pattern[:i] if len(pattern[:i]) < len(pattern[i:]) else pattern[i:]
+        #     longest = pattern[i:] if len(pattern[:i]) < len(pattern[i:]) else pattern[:i]
+        #     short_combinations = count_combinations(shortest, pattern_map, depth, towels, scan_size)
+        #     if short_combinations == 0:
+        #         continue
+        #     long_combinations = count_combinations(longest, pattern_map, depth, towels, scan_size)
+        #     result += short_combinations * long_combinations
+        # return result
+    print(f'Directly computing combinations for {pattern}')
+    return get_towel_combination_count(pattern, pattern_map, depth, towels)
 
 
 def find_guaranteed_breaks(pattern, towels, scan_size):
@@ -140,15 +201,16 @@ def find_guaranteed_breaks(pattern, towels, scan_size):
 
 def main():
     test_input = TEST_INPUT
-    # with open('input/day19.txt') as f:
-    #     test_input = f.read()
+    with open('input/day19.txt') as f:
+        test_input = f.read()
     towels, patterns = parse_input(test_input)
     # print(towels)
     # print(patterns)
     depth = 5
     pattern_map = partial_pattern_maps(towels, depth)
     print('Computed map')
-    # print(list(get_towel_combinations(patterns[0], pattern_map, depth, towels)))
+    # print(towels)
+    # print(list(get_towel_combinations(patterns[3], pattern_map, depth, towels)))
     # patterns = ['bwgww']
     count = 0
     scan_size = 3
@@ -158,12 +220,12 @@ def main():
         if can_make_pattern(pat, pattern_map, depth, towels, scan_size)
     ])
     print(count_can_make)
-    num_combs = [
-        count_combinations(pat, pattern_map, depth, towels, scan_size)
-        for pat in patterns
-    ]
+    num_combs = 0
+    for i, pat in enumerate(patterns):
+        this_count = count_combinations(pat, pattern_map, depth, towels, scan_size)
+        print(f'{i}: {this_count}')
+        num_combs += this_count
     print(num_combs)
-    print(sum(num_combs))
     # print(len([pat for pat in patterns[:10] if can_make_pattern(pat, pattern_map, depth, towels)]))
     # print({
     #     pat: can_make_pattern(pat, pattern_map, depth, towels)
