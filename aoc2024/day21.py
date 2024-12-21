@@ -93,10 +93,10 @@ def get_presses_to_enter(result, keyboard):
 
 
 def get_presses_to_enter_alts(results, keyboard):
-    return sum([
+    return filter_shortest(sum([
         get_presses_to_enter(result, keyboard)
         for result in results
-    ], [])
+    ], []))
 
 def get_robot1_presses(result):
     return get_presses_to_enter_alts([result], NUM_KEYBOARD)
@@ -108,21 +108,43 @@ def get_your_presses(result):
     return get_presses_to_enter_alts(get_robot2_presses(result), ARROW_KEYBOARD)
 
 
-def get_your_shortest_press(to_enter):
+def get_your_presses_pt2(to_enter, intermediate_robot_count):
+    result = get_robot1_presses(to_enter)
+    for i in range(intermediate_robot_count):
+        print(i, len(result))
+        result = get_presses_to_enter_alts(result, ARROW_KEYBOARD)
+    return result
+
+
+def filter_shortest(sequence):
     min_len = float('inf')
-    result = None
-    for press in get_your_presses(to_enter):
-        if len(press) >= min_len:
+    result = []
+    for press in sequence:
+        if len(press) > min_len:
             continue
-        min_len = len(press)
-        result = press
+        if len(press) < min_len:
+            result = []
+            min_len = len(press)
+        result.append(press)
+    return result
+
+
+def get_your_shortest_presses(to_enter):
+    min_len = float('inf')
+    result = []
+    for press in get_your_presses(to_enter):
+        if len(press) > min_len:
+            continue
+        if len(press) < min_len:
+            result = []
+            min_len = len(press)
+        result.append(press)
     return result
 
 
 def get_score(code):
     num_part = int(code[:-1])
     your_presses = min(map(len, get_your_presses(code)))
-    print(num_part, your_presses)
     return num_part * your_presses
 
 
@@ -146,18 +168,22 @@ def play_all_presses(presses):
 
 def main():
     test_input = TEST_INPUT.splitlines()
-    test_input = REAL_INPUT.splitlines()
-    # print(get_your_presses(the_test))
+    # test_input = REAL_INPUT.splitlines()
+    print(len(get_your_presses('379A')))
     shortest = [
-        get_your_shortest_press(code) for code in test_input
+        get_your_shortest_presses(code) for code in test_input
     ]
     for s, c in zip(shortest, test_input):
-        print(s, c, play_all_presses(s))
+        print(s[0], len(s), c, play_all_presses(s[0]))
     scores = [
         get_score(code) for code in test_input
     ]
     print(scores)
     print(sum(scores))
+    for code in test_input:
+        print(len(get_your_presses_pt2(code, 2)[0]))
+    for code in test_input:
+        print(len(get_your_presses_pt2(code, 25)[0]))
     # print(BETTER_LAST_PRESS)
     # robot2_press = play_presses(BETTER_LAST_PRESS, ARROW_KEYBOARD)
     # print(robot2_press)
