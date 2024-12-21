@@ -49,19 +49,29 @@ def get_paths(keyboard, from_el, to_el):
         if dx >= 0 and dy >= 0:
             r = '>' * dy
             d  = 'v' * dx
-            return [r + d, d + r]
+            if is_path_safe(d + r, from_el, keyboard):
+                return [d + r]
+            return [r + d]
+            # return [r + d, d + r]
         elif dx >= 0 and dy < 0:
             l = '<' * (-1 * dy)
             d = 'v' * dx
-            return [l + d, d + l]
+            if is_path_safe(l + d, from_el, keyboard):
+                return [l + d]
+            return [d + l]
         elif dx < 0 and dy >= 0:
             r = '>' * dy
             u = '^' * (-1 * dx)
-            return [r + u, u + r]
+            if is_path_safe(r + u, from_el, keyboard):
+                return [r + u]
+            return [u + r]
+            # return [r + u, u + r]
         elif dx < 0 and dy < 0:
             l = '<' * (-1 * dy)
             u = '^' * (-1 * dx)
-            return [l + u, u + l]
+            if is_path_safe(l + u, from_el, keyboard):
+                return [l + u]
+            return [u + l]
 
 
 def is_path_safe(path, from_el, keyboard):
@@ -111,7 +121,7 @@ def get_your_presses(result):
 def get_your_presses_pt2(to_enter, intermediate_robot_count):
     result = get_robot1_presses(to_enter)
     for i in range(intermediate_robot_count):
-        print(i, len(result))
+        # print(i, len(result))
         result = get_presses_to_enter_alts(result, ARROW_KEYBOARD)
     return result
 
@@ -182,8 +192,8 @@ def main():
     print(sum(scores))
     for code in test_input:
         print(len(get_your_presses_pt2(code, 2)[0]))
-    for code in test_input:
-        print(len(get_your_presses_pt2(code, 25)[0]))
+    # for code in test_input:
+    #     print(len(get_your_presses_pt2(code, 25)[0]))
     # print(BETTER_LAST_PRESS)
     # robot2_press = play_presses(BETTER_LAST_PRESS, ARROW_KEYBOARD)
     # print(robot2_press)
