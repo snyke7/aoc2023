@@ -208,3 +208,43 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# thoughts: bottom up construction!!
+
+# <v<A>>^AvA^A<vA<AA>>^AAvA<^A>AAvA^A<vA>^AA<A>A<v<A>A>^AAAvA<^A>A
+# <A>Av<<AA>^AA>AvAA^A<vAAA>^A
+# ^A<<^^A>>AvvvA
+# 379A
+# ^A^^<<A>>AvvvA
+# <A>A<AAv<AA^>>AvAA^Av<AAA^>A
+# v<<A^>>AvA^Av<<A^>>AAv<A<A^>>AA<A>vAA^Av<A^>AA<A>Av<A<A^>>AAA<A>vA^A
+#
+#
+# 379A
+# ^A   ^^<< A>>AvvvA
+# ^A   <<^^ A>>AvvvA
+# <A>A <AAv<AA^>>                        AvAA^A        v<       AAA^>A
+# <A>A v<<AA>^AA>                        AvAA^A        <v       AAA>^A
+# v<<A^>>AvA^A v<<A^>>AAv<A<A^>>AA<A>vAA ^Av<A^>AA<A>Av<A<A  ^>>AAA<A>vA^A
+# <v<A>>^AvA^A <vA<AA>>^AAvA<^A>AAvA     ^A<vA>^AA<A>A<v<A>A  >^AAAvA<^A>A
+#
+# 3 -> 7
+# <<^^A
+# < -> ^
+# >^A
+# > -> ^
+# <^A
+#
+# every pair maps to a sequence (of pairs)
+#
+# bottom up instead of top down?
+#
+# > -> ^ in 1 =
+# <^A = 3
+#
+# < -> ^ in 2 =
+# >^A in 1 =
+# 1 + > -> ^ in 1 + 1 + ^ -> A in 1 + 1
+
+
+
