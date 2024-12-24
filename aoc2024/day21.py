@@ -49,29 +49,29 @@ def get_paths(keyboard, from_el, to_el):
         if dx >= 0 and dy >= 0:
             r = '>' * dy
             d  = 'v' * dx
-            if is_path_safe(d + r, from_el, keyboard):
-                return [d + r]
-            return [r + d]
-            # return [r + d, d + r]
+            # if is_path_safe(d + r, from_el, keyboard):
+            #     return [d + r]
+            # return [r + d]
+            return [r + d, d + r]
         elif dx >= 0 and dy < 0:
             l = '<' * (-1 * dy)
             d = 'v' * dx
-            if is_path_safe(l + d, from_el, keyboard):
-                return [l + d]
-            return [d + l]
+            # if is_path_safe(l + d, from_el, keyboard):
+            #     return [l + d]
+            return [l + d, d + l]
         elif dx < 0 and dy >= 0:
             r = '>' * dy
             u = '^' * (-1 * dx)
-            if is_path_safe(r + u, from_el, keyboard):
-                return [r + u]
-            return [u + r]
-            # return [r + u, u + r]
+            # if is_path_safe(r + u, from_el, keyboard):
+            #     return [r + u]
+            # return [u + r]
+            return [r + u, u + r]
         elif dx < 0 and dy < 0:
             l = '<' * (-1 * dy)
             u = '^' * (-1 * dx)
-            if is_path_safe(l + u, from_el, keyboard):
-                return [l + u]
-            return [u + l]
+            # if is_path_safe(l + u, from_el, keyboard):
+            #     return [l + u]
+            return [l + u, u + l]
 
 
 def is_path_safe(path, from_el, keyboard):
@@ -126,6 +126,44 @@ def get_your_presses_pt2(to_enter, intermediate_robot_count):
     return result
 
 
+def count_your_presses(to_enter, intermediate_robot_count):
+    to_enter = get_robot1_presses(to_enter)
+    key_move_and_enter_count = {
+        (key1, key2): 1  # move costs nothing, entering key2 costs 1
+        for key1 in ARROW_KEYBOARD.keys()
+        for key2 in ARROW_KEYBOARD.keys()
+    }
+# <  ->  ^
+# becomes
+# A  >^  A
+# becomes
+# A -> > -> ^ -> A
+# A v  A <^ A >  A
+    def read_new_move_count(path_opts):
+        return min((sum((
+            key_move_and_enter_count[(prev_key, next_key)]
+            for prev_key, next_key in zip(
+                'A' + path, path
+            )
+        )) for path in path_opts))
+    for _ in range(intermediate_robot_count):
+        key_move_and_enter_count = {
+            (key1, key2): read_new_move_count([
+                path + 'A'
+                for path in get_safe_paths(ARROW_KEYBOARD, key1, key2)
+            ])
+            for key1 in ARROW_KEYBOARD.keys()
+            for key2 in ARROW_KEYBOARD.keys()
+        }
+    return read_new_move_count(to_enter)
+
+
+def get_score_fast(code, intermediate_robot_count):
+    num_part = int(code[:-1])
+    your_presses = count_your_presses(code, intermediate_robot_count)
+    return num_part * your_presses
+
+
 def filter_shortest(sequence):
     min_len = float('inf')
     result = []
@@ -178,32 +216,15 @@ def play_all_presses(presses):
 
 def main():
     test_input = TEST_INPUT.splitlines()
-    # test_input = REAL_INPUT.splitlines()
-    print(len(get_your_presses('379A')))
-    shortest = [
-        get_your_shortest_presses(code) for code in test_input
-    ]
-    for s, c in zip(shortest, test_input):
-        print(s[0], len(s), c, play_all_presses(s[0]))
+    test_input = REAL_INPUT.splitlines()
     scores = [
-        get_score(code) for code in test_input
+        get_score_fast(code, 2) for code in test_input
     ]
-    print(scores)
     print(sum(scores))
-    for code in test_input:
-        print(len(get_your_presses_pt2(code, 2)[0]))
-    # for code in test_input:
-    #     print(len(get_your_presses_pt2(code, 25)[0]))
-    # print(BETTER_LAST_PRESS)
-    # robot2_press = play_presses(BETTER_LAST_PRESS, ARROW_KEYBOARD)
-    # print(robot2_press)
-    # robot1_press = play_presses(robot2_press, ARROW_KEYBOARD)
-    # print(robot1_press)
-    # actual_press = play_presses(robot1_press, NUM_KEYBOARD)
-    # print(actual_press)
-    # print(get_robot1_presses(actual_press))
-    # print(get_robot2_presses(actual_press))
-    # print(get_your_presses(actual_press))
+    scores = [
+        get_score_fast(code, 25) for code in test_input
+    ]
+    print(sum(scores))
 
 
 if __name__ == '__main__':
@@ -244,7 +265,7 @@ if __name__ == '__main__':
 #
 # < -> ^ in 2 =
 # >^A in 1 =
-# 1 + > -> ^ in 1 + 1 + ^ -> A in 1 + 1
+# 1 + (> -> ^ in 1) + 1 + (^ -> A in 1) + 1
 
 
 
