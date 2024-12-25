@@ -52,22 +52,62 @@ def build_graph(connection_lines) -> Tuple[List[str], Dict[str, Set[str]]]:
     return list(nodes), connections
 
 
-def find_connected_triples(nodes, graph):
+def find_connected_triples(all_nodes, graph, the_nodes=None):
     result = set()
-    for i in range(len(nodes)):
+    nodes = all_nodes
+    if the_nodes is None:
+        the_nodes = all_nodes
+    for i in range(len(all_nodes)):
         for j in range(i + 1, len(nodes)):
             if nodes[j] not in graph[nodes[i]]:
                 continue
             overlap = graph[nodes[i]] & graph[nodes[j]]
             for el in overlap:
-                result.add(tuple(sorted((nodes[i], nodes[j], el))))
+                to_add = tuple(sorted((nodes[i], nodes[j], el)))
+                if not (set(to_add) & set(the_nodes)):
+                    continue
+                result.add(to_add)
     return result
+
+
+def grow_party(base_party, graph):
+    all_connected = graph[base_party[0]]
+    for next_pc in base_party[1:]:
+        all_connected = all_connected & graph[next_pc]
+    return {
+        tuple(sorted(set(base_party) | {el}))
+        for el in all_connected
+    }
+
+
+def grow_parties(base_parties, graph):
+    return {
+        el
+        for base_party in base_parties
+        for el in grow_party(base_party, graph)
+    }
+
+
+def find_largest_party(nodes, graph):
+    prev_parties = find_connected_triples(nodes, graph)
+    next_parties = grow_parties(prev_parties, graph)
+    while next_parties:
+        prev_parties = next_parties
+        next_parties = grow_parties(prev_parties, graph)
+    return prev_parties
 
 
 def main():
     test_input = TEST_INPUT.splitlines()
+    with open('input/day23.txt') as f:
+        test_input = f.readlines()
     nodes, graph = build_graph(test_input)
-    print(len(find_connected_triples(nodes, graph)))
+    t_nodes = [node for node in nodes if node.startswith('t')]
+    print(len(find_connected_triples(nodes, graph, t_nodes)))
+    largest_parties = find_largest_party(nodes, graph)
+    print(largest_parties)
+    the_largest = next(iter(largest_parties))
+    print(','.join(the_largest))
     # find way to focus on t-nodes
     # download and test on real input
     # make sure the TEST_INPUT is correct, manually typed over
