@@ -1,6 +1,6 @@
 import numpy as np
-from collections import defaultdict
-from itertools import product
+
+from utils import get_divisors
 
 
 TEST = '''19, 13, 30 @ -2,  1, -2
@@ -64,68 +64,6 @@ def count_colliding(vectors, bounds, truncate_z=True):
             # if np.any(vectors[i][1] == vectors[j][1]):
             #     print(f'Some overlap: {i} {j}')
     return count
-
-
-primes = []
-sieved_until = None
-
-
-def extend_primes():
-    # more primes were requested, start sieving
-    sieve = defaultdict(lambda: True)
-    global sieved_until
-    if sieved_until is None:
-        prev_sieved = 2
-        sieved_until = 1000000
-    else:
-        prev_sieved = sieved_until
-        sieved_until *= 2
-    print(f'Sieving until {sieved_until}')
-    for prime in primes:
-        for n in range(prev_sieved // prime, sieved_until // prime + 1):
-            sieve[prime * n] = False
-    for n in range(prev_sieved, sieved_until):
-        if sieve[n]:
-            primes.append(n)
-            for m in range(prev_sieved // n, sieved_until // n + 1):
-                sieve[n * m] = False
-
-
-def prime_gen():
-    yield from primes
-    extend_primes()
-    yield from prime_gen()
-
-
-def get_prime_divisors_and_powers(num):
-    if num == 1:
-        return []
-    for prime in prime_gen():
-        if num % prime == 0:
-            power = 0
-            while num % prime == 0:
-                num = num // prime
-                power += 1
-            return [(prime, power)] + get_prime_divisors_and_powers(num)
-        if prime ** 2 > num:
-            return [(num, 1)]
-
-
-def get_divisors(num):
-    if num == 0:
-        return []
-    if num == 1:
-        return [1]
-    prime_power_divisors = get_prime_divisors_and_powers(num)
-    prime_divisors = [prime for prime, _ in prime_power_divisors]
-    power_tups = product(*(range(power + 1) for _, power in prime_power_divisors))
-    result = []
-    for power_tup in power_tups:
-        this = 1
-        for prime, power in zip(prime_divisors, power_tup):
-            this *= prime ** power
-        result.append(this)
-    return sorted(result)
 
 
 def main():
